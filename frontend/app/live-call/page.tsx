@@ -6,13 +6,247 @@ import ActionButton from "../components/ActionButton";
 
 export default function LiveCall() {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const sessionIdRef = useRef<string | null>(null);
+  const audioStreamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const transcriptPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [metrics] = useState({
     value: "$125,000",
     risk: "Medium",
     price: "$95,000",
   });
+
+  const isDev = process.env.NODE_ENV === "development";
+
+  const handleRecordingToggle = async () => {
+    if (isConnecting) return;
+
+    if (isRecording) {
+      // Stop recording
+      await stopRecording();
+    } else {
+      // Start recording
+      await startRecording();
+    }
+  };
+
+  const startRecording = async () => {
+    try {
+      setIsConnecting(true);
+      setError(null);
+
+      // Request microphone access
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+
+      audioStreamRef.current = stream;
+
+      // Create AudioContext for processing
+      const audioContext = new (window.AudioContext ||
+        (window as any).webkitAudioContext)({
+        sampleRate: 16000,
+      });
+      audioContextRef.current = audioContext;
+
+      const source = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      processorRef.current = processor;
+
+      // Connect to ElevenLabs via backend API
+      const connectResponse = await fetch("/api/elevenlabs/connect", {
+        method: "POST",
+      });
+
+      if (!connectResponse.ok) {
+        const errorData = await connectResponse.json();
+        throw new Error(
+          errorData.error || "Failed to connect to transcription service"
+        );
+      }
+
+      const { sessionId } = await connectResponse.json();
+      sessionIdRef.current = sessionId;
+      console.log("Connected to ElevenLabs, sessionId:", sessionId);
+
+      // Process audio chunks and send to backend
+      processor.onaudioprocess = async (e) => {
+        if (!sessionIdRef.current) return;
+
+        const inputData = e.inputBuffer.getChannelData(0);
+        const pcmData = new Int16Array(inputData.length);
+
+        // Convert Float32 to Int16 PCM
+        for (let i = 0; i < inputData.length; i++) {
+          const s = Math.max(-1, Math.min(1, inputData[i]));
+          pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+        }
+
+        // Convert to base64 (handle large arrays)
+        const uint8Array = new Uint8Array(pcmData.buffer);
+        let binary = "";
+        for (let i = 0; i < uint8Array.length; i++) {
+          binary += String.fromCharCode(uint8Array[i]);
+        }
+        const base64Audio = btoa(binary);
+
+        // Send audio to backend API
+        try {
+          await fetch("/api/elevenlabs/audio", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              sessionId: sessionIdRef.current,
+              audioBase64: base64Audio,
+              sampleRate: 16000,
+            }),
+          });
+        } catch (err) {
+          console.error("Error sending audio:", err);
+        }
+      };
+
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+
+      // Start polling for transcripts
+      startTranscriptPolling();
+
+      setIsRecording(true);
+      setIsConnecting(false);
+      console.log("Recording started - connected to ElevenLabs");
+    } catch (err) {
+      console.error("Error starting recording:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to start recording. Please check microphone permissions."
+      );
+      setIsConnecting(false);
+      setIsRecording(false);
+      await stopRecording();
+    }
+  };
+
+  const startTranscriptPolling = () => {
+    // Poll for transcripts every 500ms
+    transcriptPollIntervalRef.current = setInterval(async () => {
+      if (!sessionIdRef.current) return;
+
+      try {
+        const response = await fetch(
+          `/api/elevenlabs/transcripts?sessionId=${sessionIdRef.current}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.transcripts && data.transcripts.length > 0) {
+            // Log new transcripts
+            data.transcripts.forEach((transcript: string) => {
+              console.log("Final transcript:", transcript);
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error polling transcripts:", err);
+      }
+    }, 500);
+  };
+
+  const stopRecording = async () => {
+    try {
+      // Stop transcript polling
+      if (transcriptPollIntervalRef.current) {
+        clearInterval(transcriptPollIntervalRef.current);
+        transcriptPollIntervalRef.current = null;
+      }
+
+      // Stop audio processing
+      if (processorRef.current) {
+        processorRef.current.disconnect();
+        processorRef.current = null;
+      }
+
+      if (audioContextRef.current) {
+        await audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+
+      // Stop audio stream
+      if (audioStreamRef.current) {
+        audioStreamRef.current.getTracks().forEach((track) => track.stop());
+        audioStreamRef.current = null;
+      }
+
+      // Disconnect from ElevenLabs via backend API
+      if (sessionIdRef.current) {
+        try {
+          await fetch("/api/elevenlabs/disconnect", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              sessionId: sessionIdRef.current,
+            }),
+          });
+        } catch (err) {
+          console.error("Error disconnecting from ElevenLabs:", err);
+        }
+        sessionIdRef.current = null;
+      }
+
+      setIsRecording(false);
+      setIsConnecting(false);
+      console.log("Recording stopped - disconnected from ElevenLabs");
+    } catch (err) {
+      console.error("Error stopping recording:", err);
+      setIsRecording(false);
+      setIsConnecting(false);
+    }
+  };
+
+  const handleActionButtonClick = async (action: () => void) => {
+    // Commit transcript before executing action
+    if (sessionIdRef.current && isRecording) {
+      try {
+        const response = await fetch("/api/elevenlabs/commit", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            sessionId: sessionIdRef.current,
+          }),
+        });
+
+        if (response.ok) {
+          console.log("Transcript committed");
+        } else {
+          const errorData = await response.json();
+          console.error("Error committing transcript:", errorData.error);
+        }
+      } catch (err) {
+        console.error("Error committing transcript:", err);
+      }
+    }
+
+    // Execute the action
+    action();
+  };
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -59,6 +293,60 @@ export default function LiveCall() {
     };
   }, []);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      // Cleanup function
+      const cleanup = async () => {
+        try {
+          // Stop transcript polling
+          if (transcriptPollIntervalRef.current) {
+            clearInterval(transcriptPollIntervalRef.current);
+            transcriptPollIntervalRef.current = null;
+          }
+
+          // Stop audio processing
+          if (processorRef.current) {
+            processorRef.current.disconnect();
+            processorRef.current = null;
+          }
+
+          if (audioContextRef.current) {
+            await audioContextRef.current.close();
+            audioContextRef.current = null;
+          }
+
+          // Stop audio stream
+          if (audioStreamRef.current) {
+            audioStreamRef.current.getTracks().forEach((track) => track.stop());
+            audioStreamRef.current = null;
+          }
+
+          // Disconnect from ElevenLabs via backend API
+          if (sessionIdRef.current) {
+            try {
+              await fetch("/api/elevenlabs/disconnect", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  sessionId: sessionIdRef.current,
+                }),
+              });
+            } catch (err) {
+              console.error("Error disconnecting during cleanup:", err);
+            }
+            sessionIdRef.current = null;
+          }
+        } catch (err) {
+          console.error("Error during cleanup:", err);
+        }
+      };
+      cleanup();
+    };
+  }, []);
+
   return (
     <main className="min-h-screen flex">
       {/* Left side - Video (2/3 of screen) */}
@@ -72,6 +360,56 @@ export default function LiveCall() {
             muted
             className="w-full h-full object-cover"
           />
+
+          {/* DEV: Recording Button (top-right corner) */}
+          {isDev && (
+            <div className="absolute top-4 right-4 z-10">
+              <button
+                onClick={handleRecordingToggle}
+                disabled={isConnecting}
+                className={`relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg ${
+                  isRecording
+                    ? "bg-red-600 hover:bg-red-700 animate-pulse"
+                    : "bg-gray-700 hover:bg-gray-600"
+                } ${isConnecting ? "opacity-50 cursor-not-allowed" : ""}`}
+                title={
+                  isRecording
+                    ? "Stop Recording"
+                    : isConnecting
+                    ? "Connecting..."
+                    : "Start Recording"
+                }
+              >
+                {isRecording ? (
+                  // Stop icon (square)
+                  <svg
+                    className="w-6 h-6 text-white"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <rect x="6" y="6" width="12" height="12" rx="1" />
+                  </svg>
+                ) : (
+                  // Record icon (circle)
+                  <svg
+                    className="w-6 h-6 text-white"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle cx="12" cy="12" r="6" />
+                  </svg>
+                )}
+                {/* Recording indicator dot */}
+                {isRecording && (
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-ping" />
+                )}
+              </button>
+              {/* DEV badge */}
+              <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs text-gray-400 font-mono bg-gray-800 px-2 py-0.5 rounded">
+                DEV
+              </div>
+            </div>
+          )}
 
           {/* Loading overlay */}
           {isLoading && (
@@ -172,8 +510,10 @@ export default function LiveCall() {
               tooltip="Argument"
               color="blue"
               onClick={() => {
-                // Mock action - no functionality yet
-                console.log("Argument button clicked");
+                handleActionButtonClick(() => {
+                  // Mock action - no functionality yet
+                  console.log("Argument button clicked");
+                });
               }}
             />
             <ActionButton
@@ -195,8 +535,10 @@ export default function LiveCall() {
               tooltip="Outcome Analysis"
               color="purple"
               onClick={() => {
-                // Mock action - no functionality yet
-                console.log("Outcome Analysis button clicked");
+                handleActionButtonClick(() => {
+                  // Mock action - no functionality yet
+                  console.log("Outcome Analysis button clicked");
+                });
               }}
             />
           </div>
