@@ -97,7 +97,13 @@ async def briefing_node(state: NegotiationState) -> NegotiationState:
     prompt = ChatPromptTemplate.from_messages([
         ("system", """You are an expert negotiation strategist creating a comprehensive briefing for a procurement negotiator.
 
-Make it professional, specific, and actionable. Use insights from research and identified potentials."""),
+IMPORTANT INSTRUCTIONS:
+- Provide all information as direct text, NOT as JSON strings
+- Fill each field with clear, readable text
+- For nested objects (supplier_overview, offer_analysis, etc.), fill each sub-field directly
+- For lists, provide simple string items, NOT JSON objects
+- Make it professional, specific, and actionable
+- Use insights from research and identified potentials"""),
         ("user", """Create a negotiation briefing based on:
 
 GOALS:
