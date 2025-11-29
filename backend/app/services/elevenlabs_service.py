@@ -166,46 +166,96 @@ class ElevenLabsService:
             )
             
             # Extract text and speaker information from transcription result
-            transcript_text = None
-            speaker_id = None
+            # Handle multiple speakers by parsing word-level speaker information
+            transcript_entries = []
             
-            # Check if it's a string
-            if isinstance(transcription, str):
-                transcript_text = transcription
-            # Check if it's an object with attributes
-            elif hasattr(transcription, '__dict__') or hasattr(transcription, '__class__'):
-                # Try to get text
-                if hasattr(transcription, 'text'):
-                    transcript_text = transcription.text
-                elif hasattr(transcription, 'transcription'):
-                    transcript_text = transcription.transcription
+            # Check if transcription has words with speaker information
+            words = None
+            if hasattr(transcription, 'words'):
+                words = transcription.words
+            elif isinstance(transcription, dict) and 'words' in transcription:
+                words = transcription['words']
+            
+            if words and len(words) > 0:
+                # Group words by speaker to create separate transcript entries
+                current_speaker = None
+                current_text_parts = []
                 
-                # Try to get speaker information
-                if hasattr(transcription, 'speaker_id'):
-                    speaker_id = transcription.speaker_id
-                elif hasattr(transcription, 'speaker'):
-                    speaker_id = transcription.speaker
-                elif hasattr(transcription, 'words'):
-                    # Check if words have speaker information
-                    words = transcription.words
-                    if words and len(words) > 0 and hasattr(words[0], 'speaker_id'):
-                        speaker_id = words[0].speaker_id
-            # Check if it's a dict
-            elif isinstance(transcription, dict):
-                transcript_text = transcription.get('text') or transcription.get('transcription')
-                speaker_id = transcription.get('speaker_id') or transcription.get('speaker')
+                for word in words:
+                    # Extract word text and speaker_id
+                    word_text = None
+                    word_speaker = None
+                    
+                    if hasattr(word, 'word') or hasattr(word, 'text'):
+                        word_text = getattr(word, 'word', None) or getattr(word, 'text', None)
+                    elif isinstance(word, dict):
+                        word_text = word.get('word') or word.get('text')
+                    
+                    if hasattr(word, 'speaker_id'):
+                        word_speaker = str(getattr(word, 'speaker_id'))
+                    elif hasattr(word, 'speaker'):
+                        word_speaker = str(getattr(word, 'speaker'))
+                    elif isinstance(word, dict):
+                        word_speaker = str(word.get('speaker_id') or word.get('speaker') or '')
+                    
+                    if word_text:
+                        # If speaker changed, create entry for previous speaker
+                        if current_speaker is not None and word_speaker != current_speaker and current_text_parts:
+                            transcript_text = ' '.join(current_text_parts).strip()
+                            if transcript_text:
+                                transcript_entries.append(TranscriptEntry(transcript_text, current_speaker))
+                            current_text_parts = []
+                        
+                        current_speaker = word_speaker
+                        current_text_parts.append(word_text)
+                
+                # Add final segment
+                if current_speaker is not None and current_text_parts:
+                    transcript_text = ' '.join(current_text_parts).strip()
+                    if transcript_text:
+                        transcript_entries.append(TranscriptEntry(transcript_text, current_speaker))
             
-            if transcript_text and transcript_text.strip():
-                # Create transcript entry with speaker info
-                transcript_entry = TranscriptEntry(transcript_text, speaker_id)
-                session.transcripts.append(transcript_entry)
+            # Fallback: if no words with speaker info, try to get full text
+            if not transcript_entries:
+                transcript_text = None
+                speaker_id = None
+                
+                # Check if it's a string
+                if isinstance(transcription, str):
+                    transcript_text = transcription
+                # Check if it's an object with attributes
+                elif hasattr(transcription, '__dict__') or hasattr(transcription, '__class__'):
+                    # Try to get text
+                    if hasattr(transcription, 'text'):
+                        transcript_text = transcription.text
+                    elif hasattr(transcription, 'transcription'):
+                        transcript_text = transcription.transcription
+                    
+                    # Try to get speaker information
+                    if hasattr(transcription, 'speaker_id'):
+                        speaker_id = str(transcription.speaker_id)
+                    elif hasattr(transcription, 'speaker'):
+                        speaker_id = str(transcription.speaker)
+                # Check if it's a dict
+                elif isinstance(transcription, dict):
+                    transcript_text = transcription.get('text') or transcription.get('transcription')
+                    speaker_id = str(transcription.get('speaker_id') or transcription.get('speaker') or '') if transcription.get('speaker_id') or transcription.get('speaker') else None
+                
+                if transcript_text and transcript_text.strip():
+                    transcript_entries.append(TranscriptEntry(transcript_text, speaker_id))
+            
+            # Store all transcript entries and return them
+            if transcript_entries:
+                for entry in transcript_entries:
+                    session.transcripts.append(entry)
+                
                 # Clear audio chunks after successful transcription
                 session.audio_chunks = []
                 session.last_activity = time.time()
-                # Return both text and speaker_id
+                
+                # Return all transcript entries as a list
                 return {
-                    "text": transcript_text,
-                    "speaker_id": speaker_id
+                    "transcripts": [entry.to_dict() for entry in transcript_entries]
                 }
             else:
                 # Use last partial transcript if available
@@ -219,8 +269,7 @@ class ElevenLabsService:
                         session.last_partial_transcript = None
                         session.last_partial_transcript_time = None
                         return {
-                            "text": transcript_text,
-                            "speaker_id": None
+                            "transcripts": [transcript_entry.to_dict()]
                         }
                 return None
                 

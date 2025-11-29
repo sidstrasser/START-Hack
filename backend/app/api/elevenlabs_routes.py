@@ -35,8 +35,7 @@ class CommitRequest(BaseModel):
 class CommitResponse(BaseModel):
     """Response model for commit endpoint."""
     success: bool
-    transcript: Optional[str] = None
-    speaker_id: Optional[str] = None
+    transcripts: Optional[List[dict]] = None  # List of transcript dicts with 'text', 'speaker_id', 'timestamp'
 
 
 class DisconnectRequest(BaseModel):
@@ -117,14 +116,13 @@ async def commit_transcript(request: CommitRequest):
         service = get_elevenlabs_service()
         result = service.commit_transcript(request.sessionId)
         
-        if result:
+        if result and isinstance(result, dict) and "transcripts" in result:
             return CommitResponse(
-                success=True, 
-                transcript=result.get("text") if isinstance(result, dict) else result,
-                speaker_id=result.get("speaker_id") if isinstance(result, dict) else None
+                success=True,
+                transcripts=result["transcripts"]
             )
         else:
-            return CommitResponse(success=True, transcript=None, speaker_id=None)
+            return CommitResponse(success=True, transcripts=None)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to commit transcript: {str(e)}")
 

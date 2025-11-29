@@ -230,13 +230,14 @@ export default function LiveCall() {
         if (response.ok) {
           const data = await response.json();
           
-          // If transcript is returned, add it to the list
-          if (data.transcript && data.transcript.trim()) {
-            setTranscripts((prev) => [...prev, {
-              text: data.transcript,
-              speaker_id: data.speaker_id || undefined,
-              timestamp: Date.now()
-            }]);
+          // If transcripts are returned, add them to the list
+          if (data.transcripts && Array.isArray(data.transcripts) && data.transcripts.length > 0) {
+            const newTranscripts = data.transcripts.map((t: any) => ({
+              text: t.text,
+              speaker_id: t.speaker_id || undefined,
+              timestamp: t.timestamp || Date.now()
+            }));
+            setTranscripts((prev) => [...prev, ...newTranscripts]);
           }
         }
       } catch (err) {
