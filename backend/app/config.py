@@ -14,9 +14,12 @@ class Settings(BaseSettings):
     # ElevenLabs
     elevenlabs_api_key: str = ""
 
+    # Pinecone
+    pinecone_api_key: str
+    pinecone_index_name: str = "Accordio"
+
     # App Config
     upload_dir: str = "./uploads"
-    chroma_db_path: str = "./chroma_db"
     max_upload_size: int = 10485760  # 10MB
 
     class Config:

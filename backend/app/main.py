@@ -37,11 +37,21 @@ async def startup_event():
 
     # Create upload directory if not exists
     os.makedirs(settings.upload_dir, exist_ok=True)
-    os.makedirs(settings.chroma_db_path, exist_ok=True)
 
-    print("✅ Negotiation Briefing MAS API started")
-    print(f"📁 Upload directory: {settings.upload_dir}")
-    print(f"🗄️  ChromaDB path: {settings.chroma_db_path}")
+    # Initialize Pinecone connection
+    try:
+        from pinecone import Pinecone
+        pc = Pinecone(api_key=settings.pinecone_api_key)
+        index = pc.Index(settings.pinecone_index_name)
+        # Test connection
+        index.describe_index_stats()
+        print("✅ Negotiation Briefing MAS API started")
+        print(f"📁 Upload directory: {settings.upload_dir}")
+        print(f"🔍 Pinecone index: {settings.pinecone_index_name}")
+    except Exception as e:
+        print(f"⚠️  Warning: Could not connect to Pinecone: {str(e)}")
+        print("✅ Negotiation Briefing MAS API started (Pinecone connection will be retried on first use)")
+        print(f"📁 Upload directory: {settings.upload_dir}")
 
 
 @app.get("/")
@@ -58,10 +68,21 @@ async def root():
 async def health():
     """Detailed health check."""
     settings = get_settings()
+    pinecone_status = "unknown"
+    try:
+        from pinecone import Pinecone
+        pc = Pinecone(api_key=settings.pinecone_api_key)
+        index = pc.Index(settings.pinecone_index_name)
+        stats = index.describe_index_stats()
+        pinecone_status = "connected"
+    except Exception as e:
+        pinecone_status = f"error: {str(e)}"
+    
     return {
         "status": "healthy",
         "upload_dir_exists": os.path.exists(settings.upload_dir),
-        "chroma_db_exists": os.path.exists(settings.chroma_db_path),
+        "pinecone_index": settings.pinecone_index_name,
+        "pinecone_status": pinecone_status,
     }
 
 
