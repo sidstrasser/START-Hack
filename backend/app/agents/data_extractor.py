@@ -15,35 +15,61 @@ from app.utils.llm import get_llm
 class ExtractedOfferData(BaseModel):
     """Structured schema for extracted offer data."""
 
-    supplier: str | None = Field(
+    # Cost & Savings
+    offer_price: str | None = Field(
         default=None,
-        description="The name of the company or supplier providing the offer"
+        description="The absolute price extracted from the offer (e.g., '€50,000')"
     )
-    total_price: str | None = Field(
+    pricing_model: str | None = Field(
         default=None,
-        description="Total price with currency (e.g., '€50,000', '$25,000 USD')"
+        description="The pricing model (e.g., 'Fixed Price', 'Subscription', 'Time & Material')"
     )
-    delivery_time: str | None = Field(
+    desired_price: str | None = Field(
         default=None,
-        description="Expected delivery timeframe (e.g., '4-6 weeks', '2 months')"
+        description="Target or desired price if mentioned in internal documents"
     )
-    contact_person: str | None = Field(
+    is_substitute: bool = Field(
+        default=False,
+        description="True if this is a substitute for an existing solution, False if it is a new solution"
+    )
+    current_price: str | None = Field(
         default=None,
-        description="Name of the main contact person from the supplier"
-    )
-    payment_terms: str | None = Field(
-        default=None,
-        description="Payment conditions (e.g., 'Net 30', '50% upfront, 50% on delivery')"
-    )
-    validity_period: str | None = Field(
-        default=None,
-        description="How long the offer is valid (e.g., '30 days', 'Valid until 2025-12-31')"
-    )
-    line_items: list[str] = Field(
-        default_factory=list,
-        description="List of items, products, or services being offered"
+        description="Current price of the existing solution (if is_substitute is True)"
     )
 
+    # Value / Requirements (Scale 1-10)
+    added_value: int | None = Field(
+        default=None,
+        description="Estimated added value on a scale of 1-10"
+    )
+    need: int | None = Field(
+        default=None,
+        description="Urgency or need for this solution on a scale of 1-10"
+    )
+
+    # Risk / Contract (Scale 1-10)
+    impact_of_outage: int | None = Field(
+        default=None,
+        description="Impact of service outage on a scale of 1-10"
+    )
+    risk_aversion: int | None = Field(
+        default=None,
+        description="Organizational risk aversion regarding this deal on a scale of 1-10"
+    )
+    target_support_availability: int | None = Field(
+        default=None,
+        description="Required support availability level on a scale of 1-10"
+    )
+    compliance_relevance: int | None = Field(
+        default=None,
+        description="Relevance of compliance requirements on a scale of 1-10"
+    )
+    
+    # Keep supplier for reference
+    supplier: str | None = Field(
+        default=None,
+        description="The name of the company or supplier"
+    )
 
 class DataExtractionAgent:
     """Agent specialized in extracting structured data from offer documents."""
@@ -55,31 +81,32 @@ class DataExtractionAgent:
 
         # Create extraction prompt with structured output instructions
         self.extraction_prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are an expert data extraction specialist for business offers and procurement documents.
+            ("system", """You are an expert data extraction specialist for procurement.
+Your task is to extract key information from one or multiple uploaded documents (offers, internal emails, requirements).
 
-Your task is to extract key information from offer documents and return it in a structured JSON format.
+Extract the following fields based on the documents provided:
 
-Extract the following fields:
-- supplier: Company/supplier name
-- total_price: Total price with currency
-- delivery_time: Expected delivery timeframe
-- contact_person: Main contact person
-- payment_terms: Payment conditions
-- validity_period: Offer validity period
-- line_items: List of items/services offered
+1. Cost & Savings:
+- offer_price: The price from the offer document.
+- pricing_model: How the price is structured.
+- desired_price: Look for internal notes or emails mentioning a target price.
+- is_substitute: Boolean. True if replacing an existing tool, False if new.
+- current_price: If substitute, what is the cost of the current solution?
 
-CRITICAL INSTRUCTIONS:
-1. Extract exact values as they appear in the document
-2. If a field is not found or unclear, set it to null (not an empty string)
-3. For total_price, include currency symbol or code
-4. For line_items, extract a concise list (max 10 items)
-5. Preserve original formatting for dates and numbers
-6. Do not make assumptions - only extract what's explicitly stated
+2. Value/Requirements (Infer 1-10 scale if not explicit, based on tone/urgency):
+- added_value: How much value does this bring? (1=Low, 10=High)
+- need: How urgent/critical is this? (1=Nice to have, 10=Critical)
+
+3. Risk/Contract (Infer 1-10 scale):
+- impact_of_outage: How bad is downtime? (1=Minor, 10=Catastrophic)
+- risk_aversion: How cautious is the buyer? (1=Risk-taker, 10=Very cautious)
+- target_support_availability: Support needs (1=Basic, 10=24/7 Dedicated)
+- compliance_relevance: Regulatory importance (1=None, 10=Strict/GDPR/etc)
 
 {format_instructions}
 
-Return ONLY valid JSON, no additional text or explanation."""),
-            ("user", "Extract structured data from this offer document:\n\n{text}")
+Return ONLY valid JSON."""),
+            ("user", "Extract structured data from these documents:\n\n{text}")
         ])
 
         self.chain = self.extraction_prompt | self.llm | self.parser

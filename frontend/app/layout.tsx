@@ -18,7 +18,7 @@ export default function RootLayout({
         <nav className="bg-white shadow-sm border-b">
           <div className="container mx-auto px-4 py-3">
             <Link href="/" className="text-xl font-bold text-blue-600">
-              Negotiation Assistant
+              Accordia
             </Link>
           </div>
         </nav>

@@ -2,7 +2,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse
 import os
 import shutil
-from typing import Dict
+from typing import List, Dict
 from app.api.models import (
     UploadResponse,
     BriefingRequest,
@@ -11,7 +11,7 @@ from app.api.models import (
     QueryBriefingRequest,
     QueryBriefingResponse,
 )
-from app.services.pdf_parser import extract_offer_data, generate_document_id
+from app.services.pdf_parser import extract_data_from_docs, generate_document_id
 from app.config import get_settings
 
 router = APIRouter()
@@ -22,50 +22,42 @@ briefings_store: Dict[str, dict] = {}
 
 
 @router.post("/upload-pdf", response_model=UploadResponse)
-async def upload_pdf(file: UploadFile = File(...)):
+async def upload_pdf(files: List[UploadFile] = File(...)):
     """
-    Upload and parse a PDF offer document.
-
-    Args:
-        file: PDF file upload
-
-    Returns:
-        Document ID and extracted data
+    Upload and parse multiple PDF documents.
     """
     settings = get_settings()
-
-    # Validate file type
-    if not file.filename.endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are allowed")
-
-    # Validate file size
-    file.file.seek(0, 2)  # Seek to end
-    file_size = file.file.tell()
-    file.file.seek(0)  # Reset to beginning
-
-    if file_size > settings.max_upload_size:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File too large. Max size: {settings.max_upload_size} bytes"
-        )
-
-    # Generate document ID
+    saved_paths = []
+    
+    # Generate a single document_id representing this "session" or "case"
     document_id = generate_document_id()
 
-    # Save file
-    file_path = os.path.join(settings.upload_dir, f"{document_id}.pdf")
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
     try:
-        # Extract data from PDF
-        extracted_data = await extract_offer_data(file_path)
+        for file in files:
+            if not file.filename.endswith(".pdf"):
+                continue
+                
+            # Save file
+            # We append a random suffix or index to avoid collisions if filenames are same
+            safe_filename = f"{document_id}_{file.filename}"
+            file_path = os.path.join(settings.upload_dir, safe_filename)
+            
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            
+            saved_paths.append(file_path)
 
-        # Store document info
+        if not saved_paths:
+             raise HTTPException(status_code=400, detail="No valid PDF files uploaded")
+
+        # Extract data from all PDFs combined
+        extracted_data = await extract_data_from_docs(saved_paths)
+
+        # Store document info (using the session ID)
         documents_store[document_id] = {
             "document_id": document_id,
-            "filename": file.filename,
-            "file_path": file_path,
+            "filenames": [f.filename for f in files],
+            "file_paths": saved_paths,
             "extracted_data": extracted_data,
         }
 
@@ -75,10 +67,11 @@ async def upload_pdf(file: UploadFile = File(...)):
         )
 
     except Exception as e:
-        # Clean up file on error
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(e)}")
+        # Cleanup
+        for path in saved_paths:
+            if os.path.exists(path):
+                os.remove(path)
+        raise HTTPException(status_code=500, detail=f"Error processing PDFs: {str(e)}")
 
 
 @router.post("/generate-briefing", response_model=BriefingResponse)
