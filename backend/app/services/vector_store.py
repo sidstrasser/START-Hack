@@ -276,10 +276,10 @@ Answer:""")
     chain = prompt | llm
 
     try:
-    response = await chain.ainvoke({
+        response = await chain.ainvoke({
             "context": briefing_context,
-        "question": query
-    })
+            "question": query
+        })
         return {
             "answer": response.content,
             "sources": ["briefing"]
@@ -380,8 +380,7 @@ Provide your insights:""")
             "goals_section": goals_section,
             "conversation": conversation_text
         })
-
-    return {
+        return {
             "insights": response.content,
             "action_type": action_type
         }
