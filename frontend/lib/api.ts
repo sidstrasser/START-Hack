@@ -5,14 +5,14 @@ import type {
   BriefingResult,
   QueryBriefingRequest,
   QueryBriefingResponse,
-} from './types';
+} from "./types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export class APIError extends Error {
   constructor(public status: number, message: string) {
     super(message);
-    this.name = 'APIError';
+    this.name = "APIError";
   }
 }
 
@@ -23,16 +23,18 @@ async function fetchJSON<T>(
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...options?.headers,
     },
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'An error occurred' }));
+    const error = await response
+      .json()
+      .catch(() => ({ detail: "An error occurred" }));
     throw new APIError(
       response.status,
-      error.detail || error.message || 'An error occurred'
+      error.detail || error.message || "An error occurred"
     );
   }
 
@@ -40,20 +42,24 @@ async function fetchJSON<T>(
 }
 
 export const api = {
-  uploadPDF: async (file: File): Promise<UploadResponse> => {
+  uploadPDF: async (files: File[]): Promise<UploadResponse> => {
     const formData = new FormData();
-    formData.append('file', file);
+    files.forEach((file) => {
+      formData.append("files", file);
+    });
 
     const response = await fetch(`${API_BASE_URL}/api/upload-pdf`, {
-      method: 'POST',
+      method: "POST",
       body: formData,
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Upload failed' }));
+      const error = await response
+        .json()
+        .catch(() => ({ detail: "Upload failed" }));
       throw new APIError(
         response.status,
-        error.detail || error.message || 'Upload failed'
+        error.detail || error.message || "Upload failed"
       );
     }
 
@@ -61,8 +67,8 @@ export const api = {
   },
 
   generateBriefing: (request: BriefingRequest): Promise<BriefingResponse> => {
-    return fetchJSON('/api/generate-briefing', {
-      method: 'POST',
+    return fetchJSON("/api/generate-briefing", {
+      method: "POST",
       body: JSON.stringify(request),
     });
   },
@@ -71,9 +77,11 @@ export const api = {
     return fetchJSON(`/api/briefing/${jobId}`);
   },
 
-  queryBriefing: (request: QueryBriefingRequest): Promise<QueryBriefingResponse> => {
-    return fetchJSON('/api/query-briefing', {
-      method: 'POST',
+  queryBriefing: (
+    request: QueryBriefingRequest
+  ): Promise<QueryBriefingResponse> => {
+    return fetchJSON("/api/query-briefing", {
+      method: "POST",
       body: JSON.stringify(request),
     });
   },

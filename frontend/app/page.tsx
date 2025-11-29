@@ -6,11 +6,12 @@ export default function Home() {
       <div className="container mx-auto px-4 py-16">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-5xl font-bold text-gray-900 mb-6">
-            Negotiation Briefing Assistant
+            Accordia - Negotiation Briefing Assistant
           </h1>
           <p className="text-xl text-gray-700 mb-8 leading-relaxed">
-            Upload procurement offers and get AI-powered negotiation briefings in minutes.
-            Our multi-agent system analyzes your documents, researches partners, and creates
+            Upload procurement offers and supporting internal documents to get
+            AI-powered negotiation briefings in minutes. Our multi-agent system
+            analyzes your full case context, researches partners, and creates
             comprehensive negotiation strategies.
           </p>
 
