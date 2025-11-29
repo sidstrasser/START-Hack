@@ -2,8 +2,10 @@
 ElevenLabs API routes for speech-to-text transcription.
 """
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional
+import json
 from app.services.elevenlabs_service import get_elevenlabs_service
 
 router = APIRouter()
@@ -52,6 +54,36 @@ class TranscriptsResponse(BaseModel):
     """Response model for transcripts endpoint."""
     transcripts: List[dict]  # Each dict has 'text', 'speaker_id' (optional), and 'timestamp'
     count: int
+
+
+class AnalyzeRequest(BaseModel):
+    """Request model for analyze endpoint."""
+    sessionId: str
+    vectorDbId: str
+    actionType: str  # "arguments" or "outcome"
+    goals: Optional[str] = None
+    messages: Optional[List[dict]] = None  # Optional: provide messages directly
+
+
+class AnalyzeResponse(BaseModel):
+    """Response model for analyze endpoint (non-streaming)."""
+    insights: str
+    actionType: str
+
+
+class MetricsRequest(BaseModel):
+    """Request model for metrics endpoint."""
+    sessionId: str
+    vectorDbId: str
+    goals: Optional[str] = None
+    messages: Optional[List[dict]] = None
+
+
+class MetricsResponse(BaseModel):
+    """Response model for metrics endpoint."""
+    value: int  # 0-100
+    risk: int   # 0-100
+    outcome: int  # 0-100
 
 
 @router.post("/elevenlabs/connect", response_model=ConnectResponse)
@@ -167,3 +199,174 @@ async def disconnect(request: DisconnectRequest):
         # Still return success even if session not found
         return DisconnectResponse(success=True)
 
+
+@router.post("/elevenlabs/analyze")
+async def analyze_conversation(request: AnalyzeRequest):
+    """
+    Analyze conversation and stream insights based on action type.
+    
+    Queries Pinecone with conversation context and streams AI-generated insights
+    for either "arguments" (negotiation arguments) or "outcome" (outcome analysis).
+    
+    Args:
+        request: Session ID, vector DB ID, action type, optional goals
+        
+    Returns:
+        SSE stream of insight chunks
+    """
+    from app.services.vector_store import stream_action_insights
+    
+    # Validate action type
+    if request.actionType not in ["arguments", "outcome"]:
+        raise HTTPException(
+            status_code=400, 
+            detail="actionType must be 'arguments' or 'outcome'"
+        )
+    
+    # Get conversation messages
+    messages = request.messages or []
+    
+    # If no messages provided, try to get from session transcripts
+    if not messages and request.sessionId:
+        try:
+            service = get_elevenlabs_service()
+            transcripts = service.get_transcripts(request.sessionId)
+            messages = transcripts
+        except Exception:
+            pass
+    
+    async def event_generator():
+        """Generate SSE events with insight chunks."""
+        try:
+            # Send start event
+            yield f"data: {json.dumps({'type': 'start', 'actionType': request.actionType})}\n\n"
+            
+            # Stream the insights
+            full_response = ""
+            async for chunk in stream_action_insights(
+                vector_db_id=request.vectorDbId,
+                conversation_messages=messages,
+                action_type=request.actionType,
+                goals=request.goals
+            ):
+                full_response += chunk
+                yield f"data: {json.dumps({'type': 'chunk', 'content': chunk})}\n\n"
+            
+            # Send complete event
+            yield f"data: {json.dumps({'type': 'complete', 'content': full_response})}\n\n"
+            
+        except Exception as e:
+            # Send error event
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
+@router.post("/elevenlabs/analyze-sync", response_model=AnalyzeResponse)
+async def analyze_conversation_sync(request: AnalyzeRequest):
+    """
+    Analyze conversation and return insights (non-streaming).
+    
+    Use this for clients that don't support SSE streaming.
+    
+    Args:
+        request: Session ID, vector DB ID, action type, optional goals
+        
+    Returns:
+        Insights and action type
+    """
+    from app.services.vector_store import query_for_action_insights
+    
+    # Validate action type
+    if request.actionType not in ["arguments", "outcome"]:
+        raise HTTPException(
+            status_code=400, 
+            detail="actionType must be 'arguments' or 'outcome'"
+        )
+    
+    # Get conversation messages
+    messages = request.messages or []
+    
+    # If no messages provided, try to get from session transcripts
+    if not messages and request.sessionId:
+        try:
+            service = get_elevenlabs_service()
+            transcripts = service.get_transcripts(request.sessionId)
+            messages = transcripts
+        except Exception:
+            pass
+    
+    try:
+        result = await query_for_action_insights(
+            vector_db_id=request.vectorDbId,
+            conversation_messages=messages,
+            action_type=request.actionType,
+            goals=request.goals
+        )
+        
+        return AnalyzeResponse(
+            insights=result["insights"],
+            actionType=result["action_type"]
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to analyze conversation: {str(e)}"
+        )
+
+
+@router.post("/elevenlabs/metrics", response_model=MetricsResponse)
+async def get_conversation_metrics(request: MetricsRequest):
+    """
+    Analyze conversation and return real-time metrics.
+    
+    Evaluates the current negotiation state and returns:
+    - value: How much value is being captured (0-100)
+    - risk: Current risk level (0-100)
+    - outcome: Likelihood of achieving goals (0-100)
+    
+    Args:
+        request: Session ID, vector DB ID, optional goals and messages
+        
+    Returns:
+        Metrics with value, risk, and outcome scores
+    """
+    from app.services.vector_store import analyze_conversation_metrics
+    
+    # Get conversation messages
+    messages = request.messages or []
+    
+    # If no messages provided, try to get from session transcripts
+    if not messages and request.sessionId:
+        try:
+            service = get_elevenlabs_service()
+            transcripts = service.get_transcripts(request.sessionId)
+            messages = transcripts
+        except Exception:
+            pass
+    
+    try:
+        result = await analyze_conversation_metrics(
+            vector_db_id=request.vectorDbId,
+            conversation_messages=messages,
+            goals=request.goals
+        )
+        
+        return MetricsResponse(
+            value=result["value"],
+            risk=result["risk"],
+            outcome=result["outcome"]
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to analyze metrics: {str(e)}"
+        )
