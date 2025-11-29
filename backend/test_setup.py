@@ -42,10 +42,10 @@ except ImportError as e:
     print(f"❌ OpenAI: {e}")
 
 try:
-    import chromadb
-    print("✅ ChromaDB")
+    from pinecone import Pinecone
+    print("✅ Pinecone")
 except ImportError as e:
-    print(f"❌ ChromaDB: {e}")
+    print(f"❌ Pinecone: {e}")
 
 try:
     import pdfplumber

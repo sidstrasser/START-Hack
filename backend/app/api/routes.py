@@ -223,6 +223,9 @@ async def query_briefing(request: QueryBriefingRequest):
     """
     Query the briefing using RAG.
 
+    The namespace is derived server-side from vector_db_id to ensure
+    data isolation. The vector_db_id is validated against existing briefings.
+
     Args:
         request: Vector DB ID and query
 
@@ -231,7 +234,16 @@ async def query_briefing(request: QueryBriefingRequest):
     """
     from app.services.vector_store import query_briefing_rag
 
+    # Validate that the vector_db_id corresponds to an existing briefing
+    # This ensures basic authorization (namespace is derived server-side)
+    if request.vector_db_id not in briefings_store:
+        raise HTTPException(
+            status_code=404,
+            detail="Briefing not found. The vector_db_id must correspond to an existing briefing."
+        )
+
     try:
+        # Namespace is derived server-side in query_briefing_rag from vector_db_id
         result = await query_briefing_rag(
             vector_db_id=request.vector_db_id,
             query=request.query
