@@ -18,8 +18,6 @@ const nextConfig = {
         assert: false,
         os: false,
         path: false,
-        bufferutil: false,
-        "utf-8-validate": false,
         "node:child_process": false,
         "node:events": false,
         "node:stream": false,
@@ -34,13 +32,6 @@ const nextConfig = {
         "node:os": false,
         "node:path": false,
       };
-    } else {
-      // Server-side: allow bufferutil for WebSocket support
-      config.externals = config.externals || [];
-      config.externals.push({
-        bufferutil: 'commonjs bufferutil',
-        'utf-8-validate': 'commonjs utf-8-validate',
-      });
     }
     return config;
   },

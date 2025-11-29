@@ -4,6 +4,9 @@ import { useState, useEffect, useRef } from "react";
 import Metric from "../components/Metric";
 import ActionButton from "../components/ActionButton";
 
+// Backend API base URL
+const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
 export default function LiveCall() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -16,6 +19,7 @@ export default function LiveCall() {
   const [error, setError] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [transcripts, setTranscripts] = useState<Array<{text: string; speaker_id?: string; timestamp?: number}>>([]);
   const [metrics] = useState({
     value: "$125,000",
     risk: "Medium",
@@ -66,7 +70,7 @@ export default function LiveCall() {
       processorRef.current = processor;
 
       // Connect to ElevenLabs via backend API
-      const connectResponse = await fetch("/api/elevenlabs/connect", {
+      const connectResponse = await fetch(`${BACKEND_API_URL}/api/elevenlabs/connect`, {
         method: "POST",
       });
 
@@ -79,7 +83,6 @@ export default function LiveCall() {
 
       const { sessionId } = await connectResponse.json();
       sessionIdRef.current = sessionId;
-      console.log("Connected to ElevenLabs, sessionId:", sessionId);
 
       // Process audio chunks and send to backend
       processor.onaudioprocess = async (e) => {
@@ -104,7 +107,7 @@ export default function LiveCall() {
 
         // Send audio to backend API
         try {
-          await fetch("/api/elevenlabs/audio", {
+          await fetch(`${BACKEND_API_URL}/api/elevenlabs/audio`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -116,7 +119,7 @@ export default function LiveCall() {
             }),
           });
         } catch (err) {
-          console.error("Error sending audio:", err);
+          // Silently handle audio sending errors
         }
       };
 
@@ -128,9 +131,7 @@ export default function LiveCall() {
 
       setIsRecording(true);
       setIsConnecting(false);
-      console.log("Recording started - connected to ElevenLabs");
     } catch (err) {
-      console.error("Error starting recording:", err);
       setError(
         err instanceof Error
           ? err.message
@@ -149,19 +150,14 @@ export default function LiveCall() {
 
       try {
         const response = await fetch(
-          `/api/elevenlabs/transcripts?sessionId=${sessionIdRef.current}`
+          `${BACKEND_API_URL}/api/elevenlabs/transcripts?sessionId=${sessionIdRef.current}`
         );
         if (response.ok) {
           const data = await response.json();
-          if (data.transcripts && data.transcripts.length > 0) {
-            // Log new transcripts
-            data.transcripts.forEach((transcript: string) => {
-              console.log("Final transcript:", transcript);
-            });
-          }
+          // Transcripts are now handled via commit response
         }
       } catch (err) {
-        console.error("Error polling transcripts:", err);
+        // Silently handle polling errors
       }
     }, 500);
   };
@@ -194,7 +190,7 @@ export default function LiveCall() {
       // Disconnect from ElevenLabs via backend API
       if (sessionIdRef.current) {
         try {
-          await fetch("/api/elevenlabs/disconnect", {
+          await fetch(`${BACKEND_API_URL}/api/elevenlabs/disconnect`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -204,16 +200,14 @@ export default function LiveCall() {
             }),
           });
         } catch (err) {
-          console.error("Error disconnecting from ElevenLabs:", err);
+          // Silently handle disconnect errors
         }
         sessionIdRef.current = null;
       }
 
       setIsRecording(false);
       setIsConnecting(false);
-      console.log("Recording stopped - disconnected from ElevenLabs");
     } catch (err) {
-      console.error("Error stopping recording:", err);
       setIsRecording(false);
       setIsConnecting(false);
     }
@@ -223,7 +217,7 @@ export default function LiveCall() {
     // Commit transcript before executing action
     if (sessionIdRef.current && isRecording) {
       try {
-        const response = await fetch("/api/elevenlabs/commit", {
+        const response = await fetch(`${BACKEND_API_URL}/api/elevenlabs/commit`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -234,13 +228,19 @@ export default function LiveCall() {
         });
 
         if (response.ok) {
-          console.log("Transcript committed");
-        } else {
-          const errorData = await response.json();
-          console.error("Error committing transcript:", errorData.error);
+          const data = await response.json();
+          
+          // If transcript is returned, add it to the list
+          if (data.transcript && data.transcript.trim()) {
+            setTranscripts((prev) => [...prev, {
+              text: data.transcript,
+              speaker_id: data.speaker_id || undefined,
+              timestamp: Date.now()
+            }]);
+          }
         }
       } catch (err) {
-        console.error("Error committing transcript:", err);
+        // Silently handle errors
       }
     }
 
@@ -270,11 +270,10 @@ export default function LiveCall() {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.play();
-          setIsLoading(false);
-        }
-      } catch (err) {
-        console.error("Error accessing camera:", err);
-        setError(
+              setIsLoading(false);
+              }
+            } catch (err) {
+              setError(
           err instanceof Error
             ? err.message
             : "Failed to access camera. Please check permissions."
@@ -325,7 +324,7 @@ export default function LiveCall() {
           // Disconnect from ElevenLabs via backend API
           if (sessionIdRef.current) {
             try {
-              await fetch("/api/elevenlabs/disconnect", {
+              await fetch(`${BACKEND_API_URL}/api/elevenlabs/disconnect`, {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
@@ -335,12 +334,12 @@ export default function LiveCall() {
                 }),
               });
             } catch (err) {
-              console.error("Error disconnecting during cleanup:", err);
+              // Silently handle disconnect errors during cleanup
             }
             sessionIdRef.current = null;
           }
         } catch (err) {
-          console.error("Error during cleanup:", err);
+          // Silently handle cleanup errors
         }
       };
       cleanup();
@@ -488,6 +487,83 @@ export default function LiveCall() {
           </div>
         </div>
 
+        {/* Transcripts Section - scrollable area */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {transcripts.length === 0 ? (
+            <div className="text-center text-gray-400 text-sm py-8">
+              <svg
+                className="w-12 h-12 mx-auto mb-2 opacity-50"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                />
+              </svg>
+              <p>No transcripts yet</p>
+              <p className="text-xs mt-1">Click an action button to commit audio</p>
+            </div>
+          ) : (
+            transcripts.map((transcript, index) => (
+              <div
+                key={index}
+                className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                    transcript.speaker_id 
+                      ? transcript.speaker_id === '0' 
+                        ? 'bg-blue-100' 
+                        : 'bg-purple-100'
+                      : 'bg-gray-100'
+                  }`}>
+                    {transcript.speaker_id ? (
+                      <span className={`text-xs font-semibold ${
+                        transcript.speaker_id === '0' ? 'text-blue-600' : 'text-purple-600'
+                      }`}>
+                        {transcript.speaker_id}
+                      </span>
+                    ) : (
+                      <svg
+                        className="w-4 h-4 text-gray-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {transcript.speaker_id && (
+                      <p className="text-xs font-medium text-gray-500 mb-1">
+                        Speaker {transcript.speaker_id}
+                      </p>
+                    )}
+                    <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap break-words">
+                      {transcript.text}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      {transcript.timestamp 
+                        ? new Date(transcript.timestamp).toLocaleTimeString()
+                        : new Date().toLocaleTimeString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
         {/* Action Buttons at the bottom */}
         <div className="mt-auto p-6 border-t border-gray-200 bg-white">
           <div className="flex items-center justify-center gap-4">
@@ -512,7 +588,6 @@ export default function LiveCall() {
               onClick={() => {
                 handleActionButtonClick(() => {
                   // Mock action - no functionality yet
-                  console.log("Argument button clicked");
                 });
               }}
             />
@@ -537,7 +612,6 @@ export default function LiveCall() {
               onClick={() => {
                 handleActionButtonClick(() => {
                   // Mock action - no functionality yet
-                  console.log("Outcome Analysis button clicked");
                 });
               }}
             />
