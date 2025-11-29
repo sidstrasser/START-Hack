@@ -31,11 +31,27 @@ export default function Briefing() {
 
   useEffect(() => {
     if (progressEvent && progressEvent.status !== 'keepalive') {
+      console.log('[BRIEFING PAGE] Progress event received:', {
+        agent: progressEvent.agent,
+        status: progressEvent.status,
+        progress: progressEvent.progress,
+        message: progressEvent.message
+      });
+
       setProgressHistory(prev => [...prev, progressEvent]);
 
-      // When completed, fetch final briefing
+      // Only fetch briefing when the entire pipeline is complete (progress = 1.0)
       if (progressEvent.status === 'completed' && jobId) {
-        fetchBriefing(jobId);
+        console.log('[BRIEFING PAGE] Checking if should fetch briefing:', {
+          progress: progressEvent.progress,
+          agent: progressEvent.agent,
+          shouldFetch: progressEvent.progress === 1.0
+        });
+
+        if (progressEvent.progress === 1.0) {
+          console.log('[BRIEFING PAGE] Fetching briefing...');
+          fetchBriefing(jobId);
+        }
       }
 
       // Handle errors
@@ -134,33 +150,220 @@ export default function Briefing() {
         {/* Briefing Display */}
         {isComplete && briefing && (
           <div className="bg-white rounded-lg shadow-lg p-8">
-            <div className="prose max-w-none">
-              {Object.entries(briefing.briefing).map(([key, value]) => (
-                <div key={key} className="mb-6">
-                  <h2 className="text-2xl font-bold capitalize mb-3 text-gray-900">
-                    {key.replace(/_/g, ' ')}
+            <div className="space-y-8">
+              {/* Executive Summary */}
+              {briefing.briefing.executive_summary && (
+                <section>
+                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
+                    Executive Summary
                   </h2>
-                  <div className="text-gray-700">
-                    {typeof value === 'string' ? (
-                      <p className="whitespace-pre-wrap">{value}</p>
-                    ) : Array.isArray(value) ? (
-                      <ul className="list-disc pl-5 space-y-2">
-                        {value.map((item, idx) => (
-                          <li key={idx}>
-                            {typeof item === 'string' ? item : JSON.stringify(item, null, 2)}
-                          </li>
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                    {briefing.briefing.executive_summary}
+                  </p>
+                </section>
+              )}
+
+              {/* Supplier Overview */}
+              {briefing.briefing.supplier_overview && (
+                <section>
+                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
+                    Supplier Overview
+                  </h2>
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Company</h3>
+                      <p className="text-gray-700">{briefing.briefing.supplier_overview.name}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Background</h3>
+                      <p className="text-gray-700">{briefing.briefing.supplier_overview.background}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Strengths</h3>
+                      <ul className="list-disc pl-6 space-y-1">
+                        {briefing.briefing.supplier_overview.strengths.map((strength: string, idx: number) => (
+                          <li key={idx} className="text-gray-700">{strength}</li>
                         ))}
                       </ul>
-                    ) : typeof value === 'object' ? (
-                      <pre className="bg-gray-50 p-4 rounded overflow-x-auto text-sm">
-                        {JSON.stringify(value, null, 2)}
-                      </pre>
-                    ) : (
-                      <p>{String(value)}</p>
-                    )}
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Weaknesses & Risks</h3>
+                      <ul className="list-disc pl-6 space-y-1">
+                        {briefing.briefing.supplier_overview.weaknesses.map((weakness: string, idx: number) => (
+                          <li key={idx} className="text-gray-700">{weakness}</li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
-                </div>
-              ))}
+                </section>
+              )}
+
+              {/* Offer Analysis */}
+              {briefing.briefing.offer_analysis && (
+                <section>
+                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
+                    Offer Analysis
+                  </h2>
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Total Value</h3>
+                      <p className="text-gray-700 text-2xl font-bold text-blue-600">
+                        {briefing.briefing.offer_analysis.total_value}
+                      </p>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Key Items</h3>
+                      <ul className="list-disc pl-6 space-y-1">
+                        {briefing.briefing.offer_analysis.key_items.map((item: string, idx: number) => (
+                          <li key={idx} className="text-gray-700">{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Assessment</h3>
+                      <p className="text-gray-700">{briefing.briefing.offer_analysis.assessment}</p>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {/* Negotiation Strategy */}
+              {briefing.briefing.negotiation_strategy && (
+                <section>
+                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
+                    Negotiation Strategy
+                  </h2>
+                  <div className="space-y-4">
+                    <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
+                      <h3 className="text-xl font-semibold text-green-900 mb-2">Opening Position</h3>
+                      <p className="text-green-800">{briefing.briefing.negotiation_strategy.opening_position}</p>
+                    </div>
+                    <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
+                      <h3 className="text-xl font-semibold text-blue-900 mb-2">Target Position</h3>
+                      <p className="text-blue-800">{briefing.briefing.negotiation_strategy.target_position}</p>
+                    </div>
+                    <div className="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
+                      <h3 className="text-xl font-semibold text-red-900 mb-2">Walkaway Point</h3>
+                      <p className="text-red-800">{briefing.briefing.negotiation_strategy.walkaway_point}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Recommended Sequence</h3>
+                      <ol className="list-decimal pl-6 space-y-2">
+                        {briefing.briefing.negotiation_strategy.recommended_sequence.map((step: string, idx: number) => (
+                          <li key={idx} className="text-gray-700">{step}</li>
+                        ))}
+                      </ol>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {/* Key Talking Points */}
+              {briefing.briefing.key_talking_points && briefing.briefing.key_talking_points.length > 0 && (
+                <section>
+                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
+                    Key Talking Points
+                  </h2>
+                  <div className="space-y-4">
+                    {briefing.briefing.key_talking_points.map((tp: any, idx: number) => (
+                      <div key={idx} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">{tp.point}</h3>
+                        <p className="text-gray-700 mb-2"><strong>Rationale:</strong> {tp.rationale}</p>
+                        <p className="text-gray-600 text-sm"><strong>Timing:</strong> {tp.timing}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Leverage Points */}
+              {briefing.briefing.leverage_points && briefing.briefing.leverage_points.length > 0 && (
+                <section>
+                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
+                    Leverage Points
+                  </h2>
+                  <div className="space-y-4">
+                    {briefing.briefing.leverage_points.map((lp: any, idx: number) => (
+                      <div key={idx} className="bg-amber-50 p-4 rounded-lg border-l-4 border-amber-500">
+                        <h3 className="text-lg font-semibold text-amber-900 mb-2">{lp.lever}</h3>
+                        <p className="text-amber-800"><strong>How to use:</strong> {lp.how_to_use}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Potential Objections */}
+              {briefing.briefing.potential_objections && briefing.briefing.potential_objections.length > 0 && (
+                <section>
+                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
+                    Potential Objections & Counters
+                  </h2>
+                  <div className="space-y-4">
+                    {briefing.briefing.potential_objections.map((obj: any, idx: number) => (
+                      <div key={idx} className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                        <h3 className="text-lg font-semibold text-purple-900 mb-2">
+                          Objection: {obj.objection}
+                        </h3>
+                        <p className="text-purple-800"><strong>Counter:</strong> {obj.counter}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* Risk Assessment */}
+              {briefing.briefing.risk_assessment && (
+                <section>
+                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
+                    Risk Assessment
+                  </h2>
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Potential Risks</h3>
+                      <ul className="list-disc pl-6 space-y-1">
+                        {briefing.briefing.risk_assessment.risks.map((risk: string, idx: number) => (
+                          <li key={idx} className="text-gray-700">{risk}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Mitigation Strategies</h3>
+                      <ul className="list-disc pl-6 space-y-1">
+                        {briefing.briefing.risk_assessment.mitigation.map((mit: string, idx: number) => (
+                          <li key={idx} className="text-gray-700">{mit}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {/* Timeline Recommendations */}
+              {briefing.briefing.timeline_recommendations && (
+                <section>
+                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
+                    Timeline Recommendations
+                  </h2>
+                  <p className="text-gray-700 whitespace-pre-wrap">
+                    {briefing.briefing.timeline_recommendations}
+                  </p>
+                </section>
+              )}
+
+              {/* Success Metrics */}
+              {briefing.briefing.success_metrics && briefing.briefing.success_metrics.length > 0 && (
+                <section>
+                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
+                    Success Metrics
+                  </h2>
+                  <ul className="list-disc pl-6 space-y-2">
+                    {briefing.briefing.success_metrics.map((metric: string, idx: number) => (
+                      <li key={idx} className="text-gray-700">{metric}</li>
+                    ))}
+                  </ul>
+                </section>
+              )}
             </div>
 
             <div className="mt-8 flex gap-4">

@@ -29,7 +29,7 @@ class ProgressEvent(BaseModel):
 
 class BriefingResult(BaseModel):
     """Final briefing result."""
-    briefing: Dict[str, Any]
+    briefing: Dict[str, Any] | None = None
     status: str
     vector_db_id: str
 
