@@ -1,0 +1,27 @@
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic>=2.7.4,<3.0.0
+pydantic-settings>=2.3.0
+
+# LangChain & LangGraph
+langgraph==0.2.55
+langchain==0.3.13
+langchain-openai==0.2.14
+langchain-community==0.3.13
+
+# OpenAI
+openai==1.58.1
+
+# Vector DB
+chromadb==0.5.23
+
+# PDF Processing
+pdfplumber==0.11.4
+
+# Web Search
+tavily-python==0.5.0
+
+# Utilities
+python-multipart==0.0.17
+python-dotenv==1.0.1
+aiofiles==24.1.0
