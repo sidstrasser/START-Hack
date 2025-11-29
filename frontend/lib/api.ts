@@ -5,6 +5,7 @@ import type {
   BriefingResult,
   QueryBriefingRequest,
   QueryBriefingResponse,
+  StoreToPineconeResponse,
 } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -83,6 +84,12 @@ export const api = {
     return fetchJSON("/api/query-briefing", {
       method: "POST",
       body: JSON.stringify(request),
+    });
+  },
+
+  storeBriefingToPinecone: (jobId: string): Promise<StoreToPineconeResponse> => {
+    return fetchJSON(`/api/store-briefing-to-pinecone/${jobId}`, {
+      method: "POST",
     });
   },
 };

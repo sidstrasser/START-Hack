@@ -59,6 +59,12 @@ export interface QueryBriefingResponse {
   sources: string[];
 }
 
+export interface StoreToPineconeResponse {
+  success: boolean;
+  vector_db_id: string;
+  message: string;
+}
+
 export interface Message {
   role: "user" | "assistant";
   content: string;
