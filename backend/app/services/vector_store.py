@@ -3,7 +3,6 @@ from typing import Dict, Any, List
 from app.config import get_settings
 from app.utils.llm import get_llm
 from langchain.prompts import ChatPromptTemplate
-from langchain_openai import OpenAIEmbeddings
 from pinecone import Pinecone
 import logging
 
@@ -36,9 +35,10 @@ def get_namespace_for_job(job_id: str) -> str:
 
 async def store_briefing_in_vector_db(job_id: str, briefing: Dict[str, Any]) -> str:
     """
-    Store briefing in Pinecone for RAG queries.
+    Store briefing in Pinecone for RAG queries using Pinecone Inference API.
 
-    Chunks the briefing into sections and stores with embeddings.
+    Chunks the briefing into sections and generates embeddings using Pinecone's
+    hosted multilingual-e5-large model (1024 dimensions).
     Each job_id uses its own namespace for data isolation.
 
     Args:
@@ -50,131 +50,129 @@ async def store_briefing_in_vector_db(job_id: str, briefing: Dict[str, Any]) -> 
     """
     # Get namespace for this job (server-derived, not client-provided)
     namespace = get_namespace_for_job(job_id)
-    
-    # Initialize embeddings
-    embeddings_model = OpenAIEmbeddings(
-        api_key=settings.openai_api_key,
-        model="text-embedding-3-small"
-    )
 
-    # Create chunks from briefing sections
-    vectors_to_upsert = []
+    # Create data records from briefing sections
+    data_records = []
 
-    # Chunk 1: Executive Summary
+    # Record 1: Executive Summary
     if "executive_summary" in briefing:
         text = f"Executive Summary:\n{briefing['executive_summary']}"
-        section = "executive_summary"
-        vector_id = f"{job_id}_exec_summary"
-        vectors_to_upsert.append({
+        data_records.append({
+            "id": f"{job_id}_exec_summary",
             "text": text,
-            "section": section,
-            "vector_id": vector_id
+            "section": "executive_summary",
+            "job_id": job_id
         })
 
-    # Chunk 2: Supplier Overview
+    # Record 2: Supplier Overview
     if "supplier_overview" in briefing:
         text = f"Supplier Overview:\n{json.dumps(briefing['supplier_overview'], indent=2)}"
-        section = "supplier_overview"
-        vector_id = f"{job_id}_supplier"
-        vectors_to_upsert.append({
+        data_records.append({
+            "id": f"{job_id}_supplier",
             "text": text,
-            "section": section,
-            "vector_id": vector_id
+            "section": "supplier_overview",
+            "job_id": job_id
         })
 
-    # Chunk 3: Offer Analysis
+    # Record 3: Offer Analysis
     if "offer_analysis" in briefing:
         text = f"Offer Analysis:\n{json.dumps(briefing['offer_analysis'], indent=2)}"
-        section = "offer_analysis"
-        vector_id = f"{job_id}_offer"
-        vectors_to_upsert.append({
+        data_records.append({
+            "id": f"{job_id}_offer",
             "text": text,
-            "section": section,
-            "vector_id": vector_id
+            "section": "offer_analysis",
+            "job_id": job_id
         })
 
-    # Chunk 4: Negotiation Strategy
+    # Record 4: Negotiation Strategy
     if "negotiation_strategy" in briefing:
         text = f"Negotiation Strategy:\n{json.dumps(briefing['negotiation_strategy'], indent=2)}"
-        section = "negotiation_strategy"
-        vector_id = f"{job_id}_strategy"
-        vectors_to_upsert.append({
+        data_records.append({
+            "id": f"{job_id}_strategy",
             "text": text,
-            "section": section,
-            "vector_id": vector_id
+            "section": "negotiation_strategy",
+            "job_id": job_id
         })
 
-    # Chunk 5: Key Talking Points
+    # Record 5: Key Talking Points
     if "key_talking_points" in briefing:
         text = f"Key Talking Points:\n{json.dumps(briefing['key_talking_points'], indent=2)}"
-        section = "talking_points"
-        vector_id = f"{job_id}_talking_points"
-        vectors_to_upsert.append({
+        data_records.append({
+            "id": f"{job_id}_talking_points",
             "text": text,
-            "section": section,
-            "vector_id": vector_id
+            "section": "talking_points",
+            "job_id": job_id
         })
 
-    # Chunk 6: Leverage Points
+    # Record 6: Leverage Points
     if "leverage_points" in briefing:
         text = f"Leverage Points:\n{json.dumps(briefing['leverage_points'], indent=2)}"
-        section = "leverage_points"
-        vector_id = f"{job_id}_leverage"
-        vectors_to_upsert.append({
+        data_records.append({
+            "id": f"{job_id}_leverage",
             "text": text,
-            "section": section,
-            "vector_id": vector_id
+            "section": "leverage_points",
+            "job_id": job_id
         })
 
-    # Chunk 7: Potential Objections
+    # Record 7: Potential Objections
     if "potential_objections" in briefing:
         text = f"Potential Objections:\n{json.dumps(briefing['potential_objections'], indent=2)}"
-        section = "objections"
-        vector_id = f"{job_id}_objections"
-        vectors_to_upsert.append({
+        data_records.append({
+            "id": f"{job_id}_objections",
             "text": text,
-            "section": section,
-            "vector_id": vector_id
+            "section": "objections",
+            "job_id": job_id
         })
 
-    # Chunk 8: Risk Assessment
+    # Record 8: Risk Assessment
     if "risk_assessment" in briefing:
         text = f"Risk Assessment:\n{json.dumps(briefing['risk_assessment'], indent=2)}"
-        section = "risk_assessment"
-        vector_id = f"{job_id}_risks"
-        vectors_to_upsert.append({
+        data_records.append({
+            "id": f"{job_id}_risks",
             "text": text,
-            "section": section,
-            "vector_id": vector_id
+            "section": "risk_assessment",
+            "job_id": job_id
         })
 
-    if not vectors_to_upsert:
+    if not data_records:
         logger.warning(f"No briefing sections to store for job_id={job_id}")
         return job_id
 
-    # Generate embeddings for all chunks
-    texts = [v["text"] for v in vectors_to_upsert]
-    embeddings = await embeddings_model.aembed_documents(texts)
-
-    # Prepare vectors for Pinecone upsert
-    pinecone_vectors = []
-    for i, vector_data in enumerate(vectors_to_upsert):
-        pinecone_vectors.append({
-            "id": vector_data["vector_id"],
-            "values": embeddings[i],
-            "metadata": {
-                "text": vector_data["text"],
-                "user": job_id,  # Using job_id as user identifier
-                "flow": job_id,  # Using job_id as flow identifier
-                "section": vector_data["section"],
-                "job_id": job_id
-            }
-        })
-
-    # Upsert into Pinecone with namespace
+    # Generate embeddings using Pinecone Inference API
+    # Uses multilingual-e5-large model (1024 dimensions)
     try:
-        index.upsert(vectors=pinecone_vectors, namespace=namespace)
-        logger.info(f"Successfully stored {len(pinecone_vectors)} vectors in Pinecone namespace={namespace}")
+        texts = [record["text"] for record in data_records]
+
+        # Generate embeddings using Pinecone's hosted model
+        embeddings_response = pc.inference.embed(
+            model="multilingual-e5-large",
+            inputs=texts,
+            parameters={
+                "input_type": "passage",
+                "truncate": "END"
+            }
+        )
+
+        # Prepare vectors for upsert
+        vectors = []
+        for i, record in enumerate(data_records):
+            vectors.append({
+                "id": record["id"],
+                "values": embeddings_response[i]["values"],
+                "metadata": {
+                    "text": record["text"],
+                    "section": record["section"],
+                    "job_id": record["job_id"]
+                }
+            })
+
+        # Upsert vectors to Pinecone
+        index.upsert(
+            vectors=vectors,
+            namespace=namespace
+        )
+
+        logger.info(f"Successfully stored {len(vectors)} vectors in Pinecone namespace={namespace}")
     except Exception as e:
         logger.error(f"Error upserting to Pinecone: {str(e)}", exc_info=True)
         raise
@@ -184,7 +182,7 @@ async def store_briefing_in_vector_db(job_id: str, briefing: Dict[str, Any]) -> 
 
 async def query_briefing_rag(vector_db_id: str, query: str) -> Dict[str, Any]:
     """
-    Query the briefing using RAG.
+    Query the briefing using RAG with Pinecone Inference API.
 
     Args:
         vector_db_id: Vector DB ID (job_id) - used to derive namespace
@@ -195,22 +193,23 @@ async def query_briefing_rag(vector_db_id: str, query: str) -> Dict[str, Any]:
     """
     # Derive namespace from vector_db_id (server-side, not client-provided)
     namespace = get_namespace_for_job(vector_db_id)
-    
-    # Initialize embeddings
-    embeddings_model = OpenAIEmbeddings(
-        api_key=settings.openai_api_key,
-        model="text-embedding-3-small"
-    )
 
-    # Generate query embedding
-    query_embedding = await embeddings_model.aembed_query(query)
-    
-    # Ensure embedding is a list (Pinecone expects list format)
-    if not isinstance(query_embedding, list):
-        query_embedding = list(query_embedding)
-
-    # Search Pinecone
+    # Generate query embedding using Pinecone Inference API
     try:
+        # Generate query embedding using Pinecone's hosted model
+        query_embedding_response = pc.inference.embed(
+            model="multilingual-e5-large",
+            inputs=[query],
+            parameters={
+                "input_type": "query",
+                "truncate": "END"
+            }
+        )
+
+        # Extract the embedding values
+        query_embedding = query_embedding_response[0]["values"]
+
+        # Search Pinecone with the query embedding
         results = index.query(
             vector=query_embedding,
             top_k=3,
@@ -227,13 +226,13 @@ async def query_briefing_rag(vector_db_id: str, query: str) -> Dict[str, Any]:
     # Extract documents and metadata from results
     documents = []
     metadatas = []
-    
-    if results.matches:
+
+    if hasattr(results, 'matches') and results.matches:
         for match in results.matches:
             if match.metadata:
                 documents.append(match.metadata.get("text", ""))
                 metadatas.append(match.metadata)
-    
+
     if not documents:
         return {
             "answer": "No relevant information found in the briefing.",
