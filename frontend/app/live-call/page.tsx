@@ -8,6 +8,12 @@ import TranscriptSidebar from "../components/TranscriptSidebar";
 // Backend API base URL
 const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
+interface Insight {
+  type: "arguments" | "outcome";
+  content: string;
+  isLoading: boolean;
+}
+
 export default function LiveCall() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -22,11 +28,43 @@ export default function LiveCall() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [transcripts, setTranscripts] = useState<Array<{text: string; speaker_id?: string; timestamp?: number}>>([]);
   const [showTranscripts, setShowTranscripts] = useState(false);
-  const [metrics] = useState({
-    value: "$125,000",
-    risk: "Medium",
-    price: "$95,000",
+  const [metrics, setMetrics] = useState({
+    value: 50,
+    risk: 50,
+    outcome: 50,
   });
+  const metricsPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Insights state
+  const [currentInsight, setCurrentInsight] = useState<Insight | null>(null);
+  const [vectorDbId, setVectorDbId] = useState<string | null>(null);
+  const [goals, setGoals] = useState<string | null>(null);
+  const [analyzingAction, setAnalyzingAction] = useState<"arguments" | "outcome" | null>(null);
+  
+  // Load vectorDbId and goals from sessionStorage on mount
+  useEffect(() => {
+    const storedVectorDbId = sessionStorage.getItem('vectorDbId');
+    if (storedVectorDbId) {
+      setVectorDbId(storedVectorDbId);
+    }
+    
+    // Try to get goals from dedicated key first, then from negotiation input
+    let storedGoals = sessionStorage.getItem('negotiationGoals');
+    if (!storedGoals) {
+      const negotiationInput = sessionStorage.getItem('negotiationInput');
+      if (negotiationInput) {
+        try {
+          const parsed = JSON.parse(negotiationInput);
+          storedGoals = parsed.goals || null;
+        } catch (e) {
+          // Ignore parse errors
+        }
+      }
+    }
+    if (storedGoals) {
+      setGoals(storedGoals);
+    }
+  }, []);
 
   const isDev = process.env.NODE_ENV === "development";
 
@@ -171,6 +209,8 @@ export default function LiveCall() {
         clearInterval(transcriptPollIntervalRef.current);
         transcriptPollIntervalRef.current = null;
       }
+      
+      // Note: Don't stop metrics polling here - we want to keep tracking even after recording stops
 
       // Stop audio processing
       if (processorRef.current) {
@@ -254,6 +294,195 @@ export default function LiveCall() {
     action();
   };
 
+  const analyzeConversation = async (actionType: "arguments" | "outcome") => {
+    if (!vectorDbId) {
+      setCurrentInsight({
+        type: actionType,
+        content: "No briefing loaded. Please generate a briefing first.",
+        isLoading: false
+      });
+      return;
+    }
+
+    // Set loading state for button
+    setAnalyzingAction(actionType);
+    
+    // Set loading state for insight panel
+    setCurrentInsight({
+      type: actionType,
+      content: "",
+      isLoading: true
+    });
+
+    try {
+      const response = await fetch(`${BACKEND_API_URL}/api/elevenlabs/analyze`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sessionId: sessionIdRef.current || "",
+          vectorDbId: vectorDbId,
+          actionType: actionType,
+          goals: goals,
+          messages: transcripts
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to analyze conversation");
+      }
+
+      // Read the SSE stream
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No response body");
+
+      const decoder = new TextDecoder();
+      let accumulatedContent = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.type === "chunk") {
+                accumulatedContent += data.content;
+                setCurrentInsight({
+                  type: actionType,
+                  content: accumulatedContent,
+                  isLoading: true
+                });
+              } else if (data.type === "complete") {
+                setCurrentInsight({
+                  type: actionType,
+                  content: data.content || accumulatedContent,
+                  isLoading: false
+                });
+                setAnalyzingAction(null);
+              } else if (data.type === "error") {
+                setCurrentInsight({
+                  type: actionType,
+                  content: `Error: ${data.message}`,
+                  isLoading: false
+                });
+                setAnalyzingAction(null);
+              }
+            } catch (e) {
+              // Skip malformed JSON
+            }
+          }
+        }
+      }
+      
+      // Ensure loading state is cleared when stream ends
+      setAnalyzingAction(null);
+      setCurrentInsight(prev => prev?.isLoading ? {
+        ...prev,
+        isLoading: false,
+        content: prev.content || accumulatedContent
+      } : prev);
+    } catch (err) {
+      setCurrentInsight({
+        type: actionType,
+        content: err instanceof Error ? err.message : "Failed to analyze conversation",
+        isLoading: false
+      });
+      setAnalyzingAction(null);
+    }
+  };
+
+  const clearInsight = () => {
+    setCurrentInsight(null);
+  };
+
+  // Fetch metrics from backend
+  const fetchMetrics = async () => {
+    if (!vectorDbId) {
+      console.log("[Metrics] Skipping fetch - no vectorDbId");
+      return;
+    }
+
+    console.log("[Metrics] Fetching metrics...", {
+      vectorDbId,
+      transcriptsCount: transcripts.length,
+      timestamp: new Date().toISOString()
+    });
+
+    try {
+      const response = await fetch(`${BACKEND_API_URL}/api/elevenlabs/metrics`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sessionId: sessionIdRef.current || "",
+          vectorDbId: vectorDbId,
+          goals: goals,
+          messages: transcripts
+        }),
+      });
+
+      if (!response.ok) {
+        console.error("[Metrics] Fetch failed:", response.status);
+        return;
+      }
+
+      const data = await response.json();
+      console.log("[Metrics] Received:", data);
+      
+      setMetrics({
+        value: data.value,
+        risk: data.risk,
+        outcome: data.outcome
+      });
+    } catch (err) {
+      console.error("[Metrics] Error fetching:", err);
+    }
+  };
+
+  // Start metrics polling when vectorDbId is available
+  useEffect(() => {
+    if (!vectorDbId) return;
+
+    console.log("[Metrics] Starting polling interval (20s)");
+    
+    // Fetch immediately on mount
+    fetchMetrics();
+    
+    // Then poll every 20 seconds
+    metricsPollIntervalRef.current = setInterval(() => {
+      fetchMetrics();
+    }, 20000);
+
+    return () => {
+      if (metricsPollIntervalRef.current) {
+        console.log("[Metrics] Stopping polling interval");
+        clearInterval(metricsPollIntervalRef.current);
+        metricsPollIntervalRef.current = null;
+      }
+    };
+  }, [vectorDbId, goals]); // Re-setup if vectorDbId or goals change
+
+  // Update metrics fetch when transcripts change (but don't restart interval)
+  useEffect(() => {
+    // This effect just triggers a fetch when transcripts update significantly
+    // Only fetch if we have new transcripts and vectorDbId
+    if (vectorDbId && transcripts.length > 0) {
+      // Debounce by checking if enough transcripts accumulated
+      const lastFetchCount = metricsPollIntervalRef.current ? transcripts.length : 0;
+      if (lastFetchCount % 3 === 0) { // Fetch every 3 new transcripts
+        fetchMetrics();
+      }
+    }
+  }, [transcripts.length]);
+
   useEffect(() => {
     let stream: MediaStream | null = null;
 
@@ -308,6 +537,12 @@ export default function LiveCall() {
           if (transcriptPollIntervalRef.current) {
             clearInterval(transcriptPollIntervalRef.current);
             transcriptPollIntervalRef.current = null;
+          }
+          
+          // Stop metrics polling
+          if (metricsPollIntervalRef.current) {
+            clearInterval(metricsPollIntervalRef.current);
+            metricsPollIntervalRef.current = null;
           }
 
           // Stop audio processing
@@ -496,25 +731,60 @@ export default function LiveCall() {
               </div>
               <div className="space-y-2.5">
                 <Metric
-                  label="Value"
-                  value={metrics.value}
+                  label="Value Capture"
+                  value={`${metrics.value}%`}
                   color="blue"
-                  fillPercentage={75}
+                  fillPercentage={metrics.value}
                 />
                 <Metric
-                  label="Risk"
-                  value={metrics.risk}
-                  color="yellow"
-                  fillPercentage={50}
+                  label="Risk Level"
+                  value={`${metrics.risk}%`}
+                  color={metrics.risk > 70 ? "red" : metrics.risk > 40 ? "yellow" : "green"}
+                  fillPercentage={metrics.risk}
                 />
                 <Metric
-                  label="Price"
-                  value={metrics.price}
-                  color="green"
-                  fillPercentage={60}
+                  label="Goal Progress"
+                  value={`${metrics.outcome}%`}
+                  color="purple"
+                  fillPercentage={metrics.outcome}
                 />
               </div>
             </div>
+
+            {/* Insights Panel */}
+            {currentInsight && (
+              <div className="flex-1 p-4 overflow-y-auto">
+                <div className={`rounded-lg p-4 ${
+                  currentInsight.type === "arguments" 
+                    ? "bg-blue-50 border border-blue-200" 
+                    : "bg-purple-50 border border-purple-200"
+                }`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className={`font-semibold text-sm ${
+                      currentInsight.type === "arguments" ? "text-blue-800" : "text-purple-800"
+                    }`}>
+                      {currentInsight.type === "arguments" ? "💬 Argument Suggestions" : "📊 Outcome Analysis"}
+                    </h3>
+                    <button
+                      onClick={clearInsight}
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className={`text-sm ${
+                    currentInsight.type === "arguments" ? "text-blue-900" : "text-purple-900"
+                  } whitespace-pre-wrap`}>
+                    {currentInsight.content}
+                    {currentInsight.isLoading && (
+                      <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse" />
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Action Buttons at the bottom */}
             <div className="mt-auto p-6 border-t border-gray-200 bg-white">
@@ -537,9 +807,11 @@ export default function LiveCall() {
                   }
                   tooltip="Argument"
                   color="blue"
+                  disabled={analyzingAction !== null}
+                  isLoading={analyzingAction === "arguments"}
                   onClick={() => {
                     handleActionButtonClick(() => {
-                      // Mock action - no functionality yet
+                      analyzeConversation("arguments");
                     });
                   }}
                 />
@@ -561,9 +833,11 @@ export default function LiveCall() {
                   }
                   tooltip="Outcome Analysis"
                   color="purple"
+                  disabled={analyzingAction !== null}
+                  isLoading={analyzingAction === "outcome"}
                   onClick={() => {
                     handleActionButtonClick(() => {
-                      // Mock action - no functionality yet
+                      analyzeConversation("outcome");
                     });
                   }}
                 />

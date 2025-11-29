@@ -111,6 +111,11 @@ export default function NegotiationInput() {
         "negotiationInput",
         JSON.stringify(negotiationFormData)
       );
+      
+      // Store goals separately for easy access during live call
+      if (goals) {
+        sessionStorage.setItem("negotiationGoals", goals);
+      }
 
       const response = await api.generateBriefing({
         document_id: documentId,

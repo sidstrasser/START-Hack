@@ -327,37 +327,36 @@ async def query_for_action_insights(
         for msg in conversation_messages[-10:]  # Last 10 messages for context
     ])
     
-    # Initialize embeddings
-    embeddings_model = OpenAIEmbeddings(
-        api_key=settings.openai_api_key,
-        model="text-embedding-3-small"
-    )
-    
-    # Generate query embedding from recent conversation
+    # Generate query embedding from recent conversation using Pinecone Inference API
     query_text = conversation_text if conversation_text else "negotiation strategy"
-    query_embedding = await embeddings_model.aembed_query(query_text)
-    
-    if not isinstance(query_embedding, list):
-        query_embedding = list(query_embedding)
     
     # Search Pinecone for relevant briefing context
+    briefing_context = ""
     try:
+        # Generate embedding using Pinecone's hosted model
+        query_embedding_response = pc.inference.embed(
+            model="multilingual-e5-large",
+            inputs=[query_text],
+            parameters={
+                "input_type": "query",
+                "truncate": "END"
+            }
+        )
+        query_embedding = query_embedding_response[0]["values"]
+        
         results = index.query(
             vector=query_embedding,
             top_k=5,
             namespace=namespace,
             include_metadata=True
         )
+        
+        if hasattr(results, 'matches') and results.matches:
+            for match in results.matches:
+                if match.metadata and match.metadata.get("text"):
+                    briefing_context += match.metadata.get("text", "") + "\n\n"
     except Exception as e:
         logger.error(f"Error querying Pinecone for insights: {str(e)}", exc_info=True)
-        results = None
-    
-    # Extract briefing context
-    briefing_context = ""
-    if results and results.matches:
-        for match in results.matches:
-            if match.metadata and match.metadata.get("text"):
-                briefing_context += match.metadata.get("text", "") + "\n\n"
     
     # Get system prompt for action type
     system_prompt = ACTION_PROMPTS.get(action_type, ACTION_PROMPTS["arguments"])
@@ -420,29 +419,30 @@ async def stream_action_insights(
         for msg in conversation_messages[-10:]
     ])
     
-    # Initialize embeddings
-    embeddings_model = OpenAIEmbeddings(
-        api_key=settings.openai_api_key,
-        model="text-embedding-3-small"
-    )
-    
-    # Generate query embedding
+    # Generate query embedding using Pinecone Inference API
     query_text = conversation_text if conversation_text else "negotiation strategy"
-    query_embedding = await embeddings_model.aembed_query(query_text)
-    
-    if not isinstance(query_embedding, list):
-        query_embedding = list(query_embedding)
     
     # Search Pinecone
     briefing_context = ""
     try:
+        # Generate embedding using Pinecone's hosted model
+        query_embedding_response = pc.inference.embed(
+            model="multilingual-e5-large",
+            inputs=[query_text],
+            parameters={
+                "input_type": "query",
+                "truncate": "END"
+            }
+        )
+        query_embedding = query_embedding_response[0]["values"]
+        
         results = index.query(
             vector=query_embedding,
             top_k=5,
             namespace=namespace,
             include_metadata=True
         )
-        if results and results.matches:
+        if hasattr(results, 'matches') and results.matches:
             for match in results.matches:
                 if match.metadata and match.metadata.get("text"):
                     briefing_context += match.metadata.get("text", "") + "\n\n"
@@ -532,27 +532,27 @@ async def analyze_conversation_metrics(
     if not conversation_text.strip():
         return {"value": 50, "risk": 50, "outcome": 50}
     
-    # Initialize embeddings
-    embeddings_model = OpenAIEmbeddings(
-        api_key=settings.openai_api_key,
-        model="text-embedding-3-small"
-    )
-    
-    # Generate query embedding
-    query_embedding = await embeddings_model.aembed_query(conversation_text)
-    if not isinstance(query_embedding, list):
-        query_embedding = list(query_embedding)
-    
-    # Search Pinecone for relevant briefing context
+    # Search Pinecone for relevant briefing context using Pinecone Inference API
     briefing_context = ""
     try:
+        # Generate embedding using Pinecone's hosted model
+        query_embedding_response = pc.inference.embed(
+            model="multilingual-e5-large",
+            inputs=[conversation_text],
+            parameters={
+                "input_type": "query",
+                "truncate": "END"
+            }
+        )
+        query_embedding = query_embedding_response[0]["values"]
+        
         results = index.query(
             vector=query_embedding,
             top_k=3,
             namespace=namespace,
             include_metadata=True
         )
-        if results and results.matches:
+        if hasattr(results, 'matches') and results.matches:
             for match in results.matches:
                 if match.metadata and match.metadata.get("text"):
                     briefing_context += match.metadata.get("text", "") + "\n\n"
