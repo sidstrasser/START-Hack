@@ -89,23 +89,14 @@ async def run_mas_pipeline(job_id: str, document_id: str, additional_context: di
             })
             return
 
-        # Store briefing in vector DB
-        logger.info(f"[PIPELINE] Storing briefing in vector DB for job_id={job_id}")
-        logger.info(f"[PIPELINE] Briefing data present: {final_state.get('final_briefing') is not None}")
-
-        vector_db_id = await store_briefing_in_vector_db(
-            job_id=job_id,
-            briefing=final_state["final_briefing"]
-        )
-
-        logger.info(f"[PIPELINE] Vector DB storage completed, vector_db_id={vector_db_id}")
-
-        # Save final result
+        # Save final result (without storing to Pinecone yet)
+        # Pinecone storage will happen when user clicks "Use in Live Call"
         logger.info(f"[PIPELINE] Storing briefing in briefings_store for job_id={job_id}")
         briefings_store[job_id] = {
             "status": "completed",
             "briefing": final_state["final_briefing"],
-            "vector_db_id": vector_db_id,
+            "vector_db_id": None,  # Will be set when stored to Pinecone
+            "stored_to_pinecone": False,  # Track if already stored
             "normalized_goals": final_state.get("normalized_goals"),
             "deal_type": final_state.get("deal_type"),
             "research_results": final_state.get("research_results"),
