@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     # Tavily Search
     tavily_api_key: str
 
+    # ElevenLabs
+    elevenlabs_api_key: str = ""
+
     # App Config
     upload_dir: str = "./uploads"
     chroma_db_path: str = "./chroma_db"

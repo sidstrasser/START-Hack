@@ -3,12 +3,23 @@
 export interface ExtractedData {
   raw_text: string;
   supplier: string | null;
-  total_price: string | null;
-  delivery_time: string | null;
-  contact_person: string | null;
-  line_items: string[];
-  payment_terms: string | null;
-  validity_period: string | null;
+
+  // Cost & Savings
+  offer_price: string | null;
+  pricing_model: string | null;
+  desired_price: string | null;
+  is_substitute: boolean;
+  current_price: string | null;
+
+  // Value / Requirements (1-10)
+  added_value: number | null;
+  need: number | null;
+
+  // Risk / Contract (1-10)
+  impact_of_outage: number | null;
+  risk_aversion: number | null;
+  target_support_availability: number | null;
+  compliance_relevance: number | null;
 }
 
 export interface UploadResponse {
@@ -27,7 +38,7 @@ export interface BriefingResponse {
 
 export interface ProgressEvent {
   agent: string;
-  status: 'running' | 'completed' | 'error' | 'keepalive';
+  status: "running" | "completed" | "error" | "keepalive";
   message: string;
   progress: number; // 0.0 to 1.0
 }
@@ -49,7 +60,7 @@ export interface QueryBriefingResponse {
 }
 
 export interface Message {
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   sources?: string[];
 }

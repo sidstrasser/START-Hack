@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
-import type { UploadResponse } from '@/lib/types';
-import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { ErrorAlert } from '@/components/ErrorAlert';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { api } from "@/lib/api";
+import type { UploadResponse } from "@/lib/types";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { ErrorAlert } from "@/components/ErrorAlert";
 
 export default function DocumentUpload() {
   const router = useRouter();
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -17,9 +17,9 @@ export default function DocumentUpload() {
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
+    if (e.type === "dragenter" || e.type === "dragover") {
       setDragActive(true);
-    } else if (e.type === 'dragleave') {
+    } else if (e.type === "dragleave") {
       setDragActive(false);
     }
   };
@@ -29,126 +29,154 @@ export default function DocumentUpload() {
     e.stopPropagation();
     setDragActive(false);
 
-    if (e.dataTransfer.files?.[0]) {
-      const droppedFile = e.dataTransfer.files[0];
-      if (droppedFile.type === 'application/pdf') {
-        setFile(droppedFile);
-        setError(null);
-      } else {
-        setError('Please upload a PDF file');
-      }
+    if (e.dataTransfer.files?.length > 0) {
+      const newFiles = Array.from(e.dataTransfer.files).filter(
+        (f) => f.type === "application/pdf"
+      );
+      setFiles((prev) => [...prev, ...newFiles]);
+      setError(null);
     }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) {
-      setFile(e.target.files[0]);
+    if (e.target.files?.length) {
+      const newFiles = Array.from(e.target.files).filter(
+        (f) => f.type === "application/pdf"
+      );
+      setFiles((prev) => [...prev, ...newFiles]);
       setError(null);
     }
   };
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (files.length === 0) return;
 
     setUploading(true);
     setError(null);
 
     try {
-      const response: UploadResponse = await api.uploadPDF(file);
+      const response: UploadResponse = await api.uploadPDF(files);
 
       // Store document_id and extracted_data in sessionStorage for next page
-      sessionStorage.setItem('documentId', response.document_id);
-      sessionStorage.setItem('extractedData', JSON.stringify(response.extracted_data));
+      sessionStorage.setItem("documentId", response.document_id);
+      sessionStorage.setItem(
+        "extractedData",
+        JSON.stringify(response.extracted_data)
+      );
 
-      router.push('/negotiation-input');
+      router.push("/negotiation-input");
     } catch (err: any) {
-      setError(err.message || 'Failed to upload document');
+      setError(err.message || "Failed to upload document");
     } finally {
       setUploading(false);
     }
   };
 
   const handleSkip = () => {
-    sessionStorage.removeItem('documentId');
-    sessionStorage.removeItem('extractedData');
-    router.push('/negotiation-input');
+    sessionStorage.removeItem("documentId");
+    sessionStorage.removeItem("extractedData");
+    router.push("/negotiation-input");
   };
 
   return (
     <main className="min-h-screen bg-gray-50 py-12">
       <div className="container mx-auto px-4 max-w-2xl">
-        <h1 className="text-4xl font-bold mb-8 text-center">Upload Document</h1>
+        <h1 className="text-4xl font-bold mb-8 text-center">
+          Upload Documents
+        </h1>
 
-        {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
+        {error && (
+          <ErrorAlert message={error} onDismiss={() => setError(null)} />
+        )}
 
         <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
           <div
             className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
-              dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+              dragActive ? "border-blue-500 bg-blue-50" : "border-gray-300"
             }`}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
             onDrop={handleDrop}
           >
-            {file ? (
+            {/* Input must be present in DOM for labels to work, so we place it outside the conditional */}
+            <input
+              id="file-upload"
+              type="file"
+              accept=".pdf"
+              multiple
+              onChange={handleFileChange}
+              className="hidden"
+            />
+
+            {files.length > 0 ? (
               <div className="space-y-4">
-                <svg
-                  className="mx-auto h-12 w-12 text-green-500"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <p className="text-lg font-medium">{file.name}</p>
-                <p className="text-sm text-gray-500">
-                  {(file.size / 1024 / 1024).toFixed(2)} MB
-                </p>
-                <button
-                  onClick={() => setFile(null)}
-                  className="text-blue-600 hover:underline"
-                >
-                  Choose different file
-                </button>
+                {files.map((file, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between bg-gray-50 p-3 rounded"
+                  >
+                    <div className="flex items-center gap-3">
+                      <svg
+                        className="h-6 w-6 text-green-500"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <span className="font-medium">{file.name}</span>
+                    </div>
+                    <button
+                      onClick={() =>
+                        setFiles(files.filter((_, i) => i !== idx))
+                      }
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+                <div className="pt-4">
+                  <label
+                    htmlFor="file-upload"
+                    className="cursor-pointer text-blue-600 hover:underline"
+                  >
+                    Add more files
+                  </label>
+                </div>
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="text-center">
                 <svg
                   className="mx-auto h-12 w-12 text-gray-400"
                   stroke="currentColor"
                   fill="none"
                   viewBox="0 0 48 48"
+                  aria-hidden="true"
                 >
                   <path
-                    d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                    strokeWidth={2}
                     strokeLinecap="round"
                     strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 14v20c0 4.418 7.163 8 16 8 1.381 0 2.721-.087 4-.252M8 14c0 4.418 7.163 8 16 8s16-3.582 16-8M8 14c0-4.418 7.163-8 16-8s16 3.582 16 8m0 0v14m0-4c0 4.418-7.163 8-16 8S8 28.418 8 24m32 10v6m0 0v6m0-6h6m-6 0h-6"
                   />
                 </svg>
-                <div>
+                <div className="mt-4 flex text-sm text-gray-600 justify-center">
                   <label
                     htmlFor="file-upload"
-                    className="cursor-pointer text-blue-600 hover:underline font-medium"
+                    className="relative cursor-pointer rounded-md bg-white font-medium text-blue-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 hover:text-blue-500"
                   >
-                    Click to upload
+                    <span>Upload files</span>
                   </label>
-                  <span className="text-gray-600"> or drag and drop</span>
-                  <input
-                    id="file-upload"
-                    type="file"
-                    accept=".pdf"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
+                  <p className="pl-1">or drag and drop</p>
                 </div>
-                <p className="text-sm text-gray-500">PDF files only (max 10MB)</p>
+                <p className="text-xs text-gray-500">PDF up to 10MB</p>
               </div>
             )}
           </div>
@@ -156,11 +184,11 @@ export default function DocumentUpload() {
           <div className="mt-6 flex gap-4">
             <button
               onClick={handleUpload}
-              disabled={!file || uploading}
+              disabled={files.length === 0 || uploading}
               className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {uploading && <LoadingSpinner size="sm" />}
-              {uploading ? 'Uploading...' : 'Upload & Continue'}
+              {uploading ? "Uploading..." : "Upload & Continue"}
             </button>
           </div>
         </div>
