@@ -22,8 +22,10 @@ export function useSSE<T>(url: string | null, enabled: boolean = true) {
         const parsedData = JSON.parse(event.data);
         setData(parsedData);
 
-        // Auto-close on completion or error
-        if (parsedData.status === 'completed' || parsedData.status === 'error') {
+        // Only close when the entire pipeline is complete (progress = 1.0)
+        // or when there's a fatal error
+        if (parsedData.status === 'error' || parsedData.progress === 1.0) {
+          console.log('[SSE] Closing connection:', parsedData);
           eventSource.close();
           setIsConnected(false);
         }

@@ -31,11 +31,27 @@ export default function Briefing() {
 
   useEffect(() => {
     if (progressEvent && progressEvent.status !== 'keepalive') {
+      console.log('[BRIEFING PAGE] Progress event received:', {
+        agent: progressEvent.agent,
+        status: progressEvent.status,
+        progress: progressEvent.progress,
+        message: progressEvent.message
+      });
+
       setProgressHistory(prev => [...prev, progressEvent]);
 
-      // When completed, fetch final briefing
+      // Only fetch briefing when the entire pipeline is complete (progress = 1.0)
       if (progressEvent.status === 'completed' && jobId) {
-        fetchBriefing(jobId);
+        console.log('[BRIEFING PAGE] Checking if should fetch briefing:', {
+          progress: progressEvent.progress,
+          agent: progressEvent.agent,
+          shouldFetch: progressEvent.progress === 1.0
+        });
+
+        if (progressEvent.progress === 1.0) {
+          console.log('[BRIEFING PAGE] Fetching briefing...');
+          fetchBriefing(jobId);
+        }
       }
 
       // Handle errors

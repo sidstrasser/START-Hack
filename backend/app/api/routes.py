@@ -91,6 +91,7 @@ async def generate_briefing(
 
     Args:
         request: Document ID and optional context
+        background_tasks: FastAPI background tasks
 
     Returns:
         Job ID for tracking progress
@@ -102,16 +103,45 @@ async def generate_briefing(
     # Import here to avoid circular dependency
     from app.services.mas_pipeline import run_mas_pipeline
     import uuid
+    import asyncio
 
     job_id = str(uuid.uuid4())
 
-    # Start background task
-    background_tasks.add_task(
-        run_mas_pipeline,
-        job_id=job_id,
-        document_id=request.document_id,
-        additional_context=request.additional_context or {}
-    )
+    # Wrapper function to run async task in background
+    def run_pipeline_wrapper():
+        """Wrapper to run async pipeline in background task."""
+        import logging
+        import os
+        from dotenv import load_dotenv
+
+        logger = logging.getLogger(__name__)
+
+        logger.info(f"[WRAPPER] Starting pipeline wrapper for job_id={job_id}")
+
+        # Reload environment variables in the new thread
+        load_dotenv(override=True)
+        logger.info(f"[WRAPPER] Environment variables reloaded")
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            logger.info(f"[WRAPPER] Event loop created, running pipeline...")
+            loop.run_until_complete(
+                run_mas_pipeline(
+                    job_id=job_id,
+                    document_id=request.document_id,
+                    additional_context=request.additional_context or {}
+                )
+            )
+            logger.info(f"[WRAPPER] Pipeline completed for job_id={job_id}")
+        except Exception as e:
+            logger.error(f"[WRAPPER] Pipeline failed for job_id={job_id}: {str(e)}", exc_info=True)
+        finally:
+            loop.close()
+            logger.info(f"[WRAPPER] Event loop closed for job_id={job_id}")
+
+    # Add wrapper to background tasks
+    background_tasks.add_task(run_pipeline_wrapper)
 
     return BriefingResponse(job_id=job_id)
 
@@ -141,7 +171,9 @@ async def stream_progress(job_id: str):
                     event = await asyncio.wait_for(queue.get(), timeout=30.0)
                     yield f"data: {json.dumps(event)}\n\n"
 
-                    if event.get("status") == "completed" or event.get("status") == "error":
+                    # Only close when the entire pipeline is complete (progress = 1.0)
+                    # or when there's a fatal error
+                    if event.get("progress") == 1.0 or event.get("status") == "error":
                         break
                 except asyncio.TimeoutError:
                     # Send keepalive
@@ -170,15 +202,26 @@ async def get_briefing(job_id: str):
     Returns:
         Briefing data and status
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    logger.info(f"[GET BRIEFING] Request received for job_id={job_id}")
+    logger.info(f"[GET BRIEFING] Current briefings_store contains {len(briefings_store)} items")
+    logger.info(f"[GET BRIEFING] Store keys: {list(briefings_store.keys())}")
+    logger.info(f"[GET BRIEFING] job_id in store: {job_id in briefings_store}")
+
     if job_id not in briefings_store:
+        logger.error(f"[GET BRIEFING] Briefing not found for job_id={job_id}")
         raise HTTPException(status_code=404, detail="Briefing not found")
 
     briefing_data = briefings_store[job_id]
+    logger.info(f"[GET BRIEFING] Briefing found. Status: {briefing_data.get('status')}")
+    logger.info(f"[GET BRIEFING] Has briefing data: {briefing_data.get('briefing') is not None}")
 
     return BriefingResult(
-        briefing=briefing_data["briefing"],
-        status=briefing_data["status"],
-        vector_db_id=briefing_data.get("vector_db_id", job_id)
+        briefing=briefing_data.get("briefing"),
+        status=briefing_data.get("status", "pending"),
+        vector_db_id=briefing_data.get("vector_db_id") or job_id
     )
 
 

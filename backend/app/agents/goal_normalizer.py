@@ -3,6 +3,24 @@ from app.agents.state import NegotiationState
 from app.utils.llm import get_llm
 from app.services.progress_tracker import progress_tracker
 from langchain.prompts import ChatPromptTemplate
+from pydantic import BaseModel, Field
+
+
+class BudgetRange(BaseModel):
+    """Budget range for the negotiation."""
+    min: float = Field(description="Minimum budget amount")
+    max: float = Field(description="Maximum budget amount")
+    currency: str = Field(description="Currency code (EUR/USD/CHF)")
+
+
+class NormalizedGoals(BaseModel):
+    """Structured negotiation goals extracted from offer document."""
+    primary_goals: list[str] = Field(description="List of main negotiation objectives")
+    secondary_goals: list[str] = Field(description="List of nice-to-have objectives")
+    deal_type: str = Field(description="Category of the deal (e.g., IT_INFRASTRUCTURE, SOFTWARE_LICENSE, CONSULTING_SERVICES)")
+    budget_range: BudgetRange = Field(description="Budget range for the negotiation")
+    critical_requirements: list[str] = Field(description="Must-have technical or business requirements")
+    timeline: str = Field(description="Expected timeline for decision/implementation")
 
 
 async def goal_normalizer_node(state: NegotiationState) -> NegotiationState:
@@ -11,7 +29,11 @@ async def goal_normalizer_node(state: NegotiationState) -> NegotiationState:
 
     Extracts and normalizes negotiation goals from the PDF text.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     job_id = state["job_id"]
+    logger.info(f"[GOAL_NORMALIZER] Starting for job_id={job_id}")
 
     await progress_tracker.publish(job_id, {
         "agent": "goal_normalizer",
@@ -19,23 +41,17 @@ async def goal_normalizer_node(state: NegotiationState) -> NegotiationState:
         "message": "Analyzing and structuring negotiation goals...",
         "progress": 0.2
     })
+    logger.info(f"[GOAL_NORMALIZER] Progress published")
 
     state["current_agent"] = "goal_normalizer"
 
     llm = get_llm(temperature=0.3)
 
+    # Use with_structured_output for guaranteed JSON
+    structured_llm = llm.with_structured_output(NormalizedGoals)
+
     prompt = ChatPromptTemplate.from_messages([
         ("system", """You are an expert procurement analyst. Analyze the provided offer document and extract structured negotiation goals.
-
-Return a JSON object with this structure:
-{
-  "primary_goals": ["List of main negotiation objectives"],
-  "secondary_goals": ["List of nice-to-have objectives"],
-  "deal_type": "Category of the deal (e.g., IT_INFRASTRUCTURE, SOFTWARE_LICENSE, CONSULTING_SERVICES, etc.)",
-  "budget_range": {"min": number, "max": number, "currency": "EUR/USD/CHF"},
-  "critical_requirements": ["Must-have technical or business requirements"],
-  "timeline": "Expected timeline for decision/implementation"
-}
 
 Extract realistic goals based on the document content. If information is missing, make reasonable inferences."""),
         ("user", """Extracted data from offer:
@@ -48,17 +64,18 @@ Payment Terms: {payment_terms}
 Full document text (first 3000 chars):
 {text}
 
-Analyze this and return structured negotiation goals as JSON.""")
+Analyze this and extract structured negotiation goals.""")
     ])
 
-    chain = prompt | llm
+    chain = prompt | structured_llm
 
     # Prepare input
     extracted = state["extracted_data"]
     text_preview = state["raw_pdf_text"][:3000]
 
     try:
-        response = await chain.ainvoke({
+        logger.info(f"[GOAL_NORMALIZER] Invoking LLM chain with structured output...")
+        response: NormalizedGoals = await chain.ainvoke({
             "supplier": extracted.get("supplier", "Unknown"),
             "total_price": extracted.get("total_price", "Unknown"),
             "delivery_time": extracted.get("delivery_time", "Unknown"),
@@ -66,34 +83,28 @@ Analyze this and return structured negotiation goals as JSON.""")
             "payment_terms": extracted.get("payment_terms", "Unknown"),
             "text": text_preview
         })
+        logger.info(f"[GOAL_NORMALIZER] Structured response received: {response}")
 
-        # Parse JSON response
-        try:
-            normalized_goals = json.loads(response.content)
-        except json.JSONDecodeError:
-            # Fallback structure
-            normalized_goals = {
-                "primary_goals": ["Optimize pricing", "Ensure quality delivery"],
-                "secondary_goals": ["Flexible payment terms"],
-                "deal_type": "IT_INFRASTRUCTURE",
-                "budget_range": {"min": 0, "max": 0, "currency": "EUR"},
-                "critical_requirements": ["Reliable delivery", "Quality guarantee"],
-                "timeline": "Unknown"
-            }
+        # Convert Pydantic model to dict
+        normalized_goals = response.model_dump()
+        logger.info(f"[GOAL_NORMALIZER] Successfully extracted structured goals")
 
         state["normalized_goals"] = normalized_goals
         state["deal_type"] = normalized_goals.get("deal_type", "GENERAL")
         state["progress"] = 0.3
 
+        logger.info(f"[GOAL_NORMALIZER] Publishing completion event")
         await progress_tracker.publish(job_id, {
             "agent": "goal_normalizer",
             "status": "completed",
             "message": f"Goals normalized. Deal type: {state['deal_type']}",
             "progress": 0.3
         })
+        logger.info(f"[GOAL_NORMALIZER] Completed successfully")
 
     except Exception as e:
         error_msg = f"Goal normalization error: {str(e)}"
+        logger.error(f"[GOAL_NORMALIZER] Exception: {error_msg}", exc_info=True)
         state["errors"].append(error_msg)
 
         await progress_tracker.publish(job_id, {
