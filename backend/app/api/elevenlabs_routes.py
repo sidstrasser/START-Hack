@@ -205,7 +205,7 @@ async def analyze_conversation(request: AnalyzeRequest):
     """
     Analyze conversation and stream insights based on action type.
     
-    Queries Pinecone with conversation context and streams AI-generated insights
+    Queries vector database with conversation context and streams AI-generated insights
     for either "arguments" (negotiation arguments) or "outcome" (outcome analysis).
     
     Args:

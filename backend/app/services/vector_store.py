@@ -1,252 +1,271 @@
+"""
+Vector store service - Uses in-memory briefing context for action insights.
+"""
 import json
-from typing import Dict, Any, List
+import logging
+from typing import Dict, Any
 from app.config import get_settings
 from app.utils.llm import get_llm
 from langchain.prompts import ChatPromptTemplate
-from pinecone import Pinecone
-import logging
 
 logger = logging.getLogger(__name__)
-
-# Initialize Pinecone client
 settings = get_settings()
-pc = Pinecone(api_key=settings.pinecone_api_key)
-
-# Connect to the Accordio index
-index = pc.Index(settings.pinecone_index_name)
 
 
 def get_namespace_for_job(job_id: str) -> str:
+    """Derive namespace from job_id."""
+    return job_id
+
+
+def get_briefing_data(vector_db_id: str) -> dict | None:
     """
-    Derive namespace from job_id.
-    
-    This ensures namespace is always server-derived, not client-provided.
-    In the future, this can be extended to include user_id for multi-user support:
-    namespace = f"{user_id}_{job_id}" or namespace = user_id
+    Get raw briefing data from in-memory store.
     
     Args:
-        job_id: Job ID (unique identifier for each user flow)
+        vector_db_id: The job_id used to look up the briefing
         
     Returns:
-        Namespace string for Pinecone operations
+        Briefing dictionary or None
     """
-    return job_id
+    from app.api.routes import get_briefings_store
+    
+    briefings_store = get_briefings_store()
+    
+    if vector_db_id not in briefings_store:
+        logger.warning(f"Briefing not found for vector_db_id={vector_db_id}")
+        return None
+    
+    briefing_data = briefings_store[vector_db_id]
+    return briefing_data.get("briefing", {})
+
+
+def get_arguments_context(briefing: dict) -> str:
+    """
+    Build context optimized for generating argument suggestions.
+    
+    Focuses on:
+    - Executive Summary
+    - Leverage Points
+    - Potential Objections
+    - Risk Assessment
+    """
+    if not briefing:
+        return "No briefing context available."
+    
+    context_parts = []
+    
+    # Executive Summary - overall context and goals
+    if briefing.get("executive_summary"):
+        context_parts.append(f"## EXECUTIVE SUMMARY\n{briefing['executive_summary']}")
+    
+    # Leverage Points - the most actionable for arguments
+    if briefing.get("leverage_points"):
+        leverages = briefing["leverage_points"]
+        leverage_text = "\n".join([f"• {lp.get('lever', '')}\n  How to use: {lp.get('how_to_use', '')}" for lp in leverages])
+        context_parts.append(f"## LEVERAGE POINTS\n{leverage_text}")
+    
+    # Potential Objections & Counters
+    if briefing.get("potential_objections"):
+        objections = briefing["potential_objections"]
+        objections_text = "\n".join([f"• If they say: \"{obj.get('objection', '')}\"\n  You respond: \"{obj.get('counter', '')}\"" for obj in objections])
+        context_parts.append(f"## POTENTIAL OBJECTIONS & COUNTERS\n{objections_text}")
+    
+    # Risk Assessment
+    if briefing.get("risk_assessment"):
+        risks = briefing["risk_assessment"]
+        if risks.get("risks"):
+            context_parts.append(f"## RISK ASSESSMENT\n{chr(10).join(['• ' + r for r in risks['risks']])}")
+        if risks.get("mitigation"):
+            context_parts.append(f"Mitigation Strategies:\n{chr(10).join(['• ' + m for m in risks['mitigation']])}")
+    
+    return "\n\n".join(context_parts) if context_parts else "No briefing context available."
+
+
+def get_outcome_context(briefing: dict) -> str:
+    """
+    Build context optimized for outcome analysis.
+    
+    Focuses on:
+    - Success Metrics
+    - Negotiation Strategy
+    """
+    if not briefing:
+        return "No briefing context available."
+    
+    context_parts = []
+    
+    # Success Metrics - what defines a good outcome
+    if briefing.get("success_metrics"):
+        metrics = briefing["success_metrics"]
+        metrics_text = "\n".join([f"• {m}" for m in metrics])
+        context_parts.append(f"## SUCCESS METRICS\n{metrics_text}")
+    
+    # Negotiation Strategy - targets and positions
+    if briefing.get("negotiation_strategy"):
+        strategy = briefing["negotiation_strategy"]
+        context_parts.append(f"""## NEGOTIATION STRATEGY
+- Opening Position: {strategy.get('opening_position', 'Not specified')}
+- Target Position: {strategy.get('target_position', 'Not specified')}
+- Walkaway Point: {strategy.get('walkaway_point', 'Not specified')}""")
+        if strategy.get("recommended_sequence"):
+            sequence = "\n".join([f"  {i+1}. {step}" for i, step in enumerate(strategy['recommended_sequence'])])
+            context_parts.append(f"- Recommended Sequence:\n{sequence}")
+    
+    return "\n\n".join(context_parts) if context_parts else "No briefing context available."
+
+
+def get_metrics_context(briefing: dict) -> str:
+    """
+    Build context optimized for metrics calculation.
+    
+    Focuses on:
+    - Negotiation strategy (for value/outcome scoring)
+    - Risk assessment (for risk scoring)
+    - Success metrics
+    - Offer analysis
+    """
+    if not briefing:
+        return "No briefing context available."
+    
+    context_parts = []
+    
+    # Negotiation targets for value scoring
+    if briefing.get("negotiation_strategy"):
+        strategy = briefing["negotiation_strategy"]
+        context_parts.append(f"""## VALUE BENCHMARKS
+- Opening (Best case): {strategy.get('opening_position', 'Not specified')}
+- Target (Good outcome): {strategy.get('target_position', 'Not specified')}
+- Walkaway (Minimum acceptable): {strategy.get('walkaway_point', 'Not specified')}""")
+    
+    # Risk factors
+    if briefing.get("risk_assessment"):
+        risks = briefing["risk_assessment"]
+        if risks.get("risks"):
+            context_parts.append(f"## RISK FACTORS\n{chr(10).join(['• ' + r for r in risks['risks']])}")
+    
+    # Success metrics
+    if briefing.get("success_metrics"):
+        metrics = briefing["success_metrics"]
+        context_parts.append(f"## SUCCESS CRITERIA\n{chr(10).join(['• ' + m for m in metrics])}")
+    
+    # Offer details
+    if briefing.get("offer_analysis"):
+        offer = briefing["offer_analysis"]
+        context_parts.append(f"## OFFER\n- Value: {offer.get('total_value', 'Unknown')}")
+    
+    return "\n\n".join(context_parts) if context_parts else "No briefing context available."
+
+
+def get_briefing_context(vector_db_id: str, action_type: str = None) -> str:
+    """
+    Get briefing context from in-memory store, optimized for the action type.
+
+    Args:
+        vector_db_id: The job_id used to look up the briefing
+        action_type: Optional - "arguments", "outcome", or "metrics"
+
+    Returns:
+        Formatted briefing context string optimized for the action
+    """
+    briefing = get_briefing_data(vector_db_id)
+    
+    if not briefing:
+        return "No briefing context available."
+    
+    # Return action-specific context
+    if action_type == "arguments":
+        return get_arguments_context(briefing)
+    elif action_type == "outcome":
+        return get_outcome_context(briefing)
+    elif action_type == "metrics":
+        return get_metrics_context(briefing)
+    else:
+        # Default: return full context (for RAG queries)
+        return get_full_context(briefing)
+
+
+def get_full_context(briefing: dict) -> str:
+    """Build full briefing context (used for general RAG queries)."""
+    if not briefing:
+        return "No briefing context available."
+    
+    context_parts = []
+    
+    if briefing.get("executive_summary"):
+        context_parts.append(f"## Executive Summary\n{briefing['executive_summary']}")
+    
+    if briefing.get("supplier_overview"):
+        supplier = briefing["supplier_overview"]
+        context_parts.append(f"## Supplier Overview\n- Name: {supplier.get('name', 'Unknown')}\n- Background: {supplier.get('background', '')}")
+        if supplier.get("strengths"):
+            context_parts.append(f"- Strengths: {', '.join(supplier['strengths'])}")
+        if supplier.get("weaknesses"):
+            context_parts.append(f"- Weaknesses: {', '.join(supplier['weaknesses'])}")
+    
+    if briefing.get("offer_analysis"):
+        offer = briefing["offer_analysis"]
+        context_parts.append(f"## Offer Analysis\n- Total Value: {offer.get('total_value', 'Unknown')}\n- Assessment: {offer.get('assessment', '')}")
+        if offer.get("key_items"):
+            context_parts.append(f"- Key Items: {', '.join(offer['key_items'])}")
+    
+    if briefing.get("negotiation_strategy"):
+        strategy = briefing["negotiation_strategy"]
+        context_parts.append(f"## Negotiation Strategy\n- Opening Position: {strategy.get('opening_position', '')}\n- Target Position: {strategy.get('target_position', '')}\n- Walkaway Point: {strategy.get('walkaway_point', '')}")
+    
+    if briefing.get("key_talking_points"):
+        points = briefing["key_talking_points"]
+        talking_points = "\n".join([f"- {tp.get('point', '')}: {tp.get('rationale', '')}" for tp in points])
+        context_parts.append(f"## Key Talking Points\n{talking_points}")
+    
+    if briefing.get("leverage_points"):
+        leverages = briefing["leverage_points"]
+        leverage_text = "\n".join([f"- {lp.get('lever', '')}: {lp.get('how_to_use', '')}" for lp in leverages])
+        context_parts.append(f"## Leverage Points\n{leverage_text}")
+    
+    if briefing.get("potential_objections"):
+        objections = briefing["potential_objections"]
+        objections_text = "\n".join([f"- Objection: {obj.get('objection', '')} → Counter: {obj.get('counter', '')}" for obj in objections])
+        context_parts.append(f"## Potential Objections & Counters\n{objections_text}")
+    
+    if briefing.get("risk_assessment"):
+        risks = briefing["risk_assessment"]
+        if risks.get("risks"):
+            context_parts.append(f"## Risks\n{', '.join(risks['risks'])}")
+        if risks.get("mitigation"):
+            context_parts.append(f"## Mitigation Strategies\n{', '.join(risks['mitigation'])}")
+    
+    return "\n\n".join(context_parts) if context_parts else "No briefing context available."
 
 
 async def store_briefing_in_vector_db(job_id: str, briefing: Dict[str, Any]) -> str:
     """
-    Store briefing in Pinecone for RAG queries using Pinecone Inference API.
-
-    Chunks the briefing into sections and generates embeddings using Pinecone's
-    hosted multilingual-e5-large model (1024 dimensions).
-    Each job_id uses its own namespace for data isolation.
-
-    Args:
-        job_id: Job ID (used as vector_db_id and namespace)
-        briefing: Briefing dictionary
-
-    Returns:
-        Vector DB ID (same as job_id)
+    Store briefing - now just returns job_id since we use in-memory storage.
     """
-    # Get namespace for this job (server-derived, not client-provided)
-    namespace = get_namespace_for_job(job_id)
-
-    # Create data records from briefing sections
-    data_records = []
-
-    # Record 1: Executive Summary
-    if "executive_summary" in briefing:
-        text = f"Executive Summary:\n{briefing['executive_summary']}"
-        data_records.append({
-            "id": f"{job_id}_exec_summary",
-            "text": text,
-            "section": "executive_summary",
-            "job_id": job_id
-        })
-
-    # Record 2: Supplier Overview
-    if "supplier_overview" in briefing:
-        text = f"Supplier Overview:\n{json.dumps(briefing['supplier_overview'], indent=2)}"
-        data_records.append({
-            "id": f"{job_id}_supplier",
-            "text": text,
-            "section": "supplier_overview",
-            "job_id": job_id
-        })
-
-    # Record 3: Offer Analysis
-    if "offer_analysis" in briefing:
-        text = f"Offer Analysis:\n{json.dumps(briefing['offer_analysis'], indent=2)}"
-        data_records.append({
-            "id": f"{job_id}_offer",
-            "text": text,
-            "section": "offer_analysis",
-            "job_id": job_id
-        })
-
-    # Record 4: Negotiation Strategy
-    if "negotiation_strategy" in briefing:
-        text = f"Negotiation Strategy:\n{json.dumps(briefing['negotiation_strategy'], indent=2)}"
-        data_records.append({
-            "id": f"{job_id}_strategy",
-            "text": text,
-            "section": "negotiation_strategy",
-            "job_id": job_id
-        })
-
-    # Record 5: Key Talking Points
-    if "key_talking_points" in briefing:
-        text = f"Key Talking Points:\n{json.dumps(briefing['key_talking_points'], indent=2)}"
-        data_records.append({
-            "id": f"{job_id}_talking_points",
-            "text": text,
-            "section": "talking_points",
-            "job_id": job_id
-        })
-
-    # Record 6: Leverage Points
-    if "leverage_points" in briefing:
-        text = f"Leverage Points:\n{json.dumps(briefing['leverage_points'], indent=2)}"
-        data_records.append({
-            "id": f"{job_id}_leverage",
-            "text": text,
-            "section": "leverage_points",
-            "job_id": job_id
-        })
-
-    # Record 7: Potential Objections
-    if "potential_objections" in briefing:
-        text = f"Potential Objections:\n{json.dumps(briefing['potential_objections'], indent=2)}"
-        data_records.append({
-            "id": f"{job_id}_objections",
-            "text": text,
-            "section": "objections",
-            "job_id": job_id
-        })
-
-    # Record 8: Risk Assessment
-    if "risk_assessment" in briefing:
-        text = f"Risk Assessment:\n{json.dumps(briefing['risk_assessment'], indent=2)}"
-        data_records.append({
-            "id": f"{job_id}_risks",
-            "text": text,
-            "section": "risk_assessment",
-            "job_id": job_id
-        })
-
-    if not data_records:
-        logger.warning(f"No briefing sections to store for job_id={job_id}")
-        return job_id
-
-    # Generate embeddings using Pinecone Inference API
-    # Uses multilingual-e5-large model (1024 dimensions)
-    try:
-        texts = [record["text"] for record in data_records]
-
-        # Generate embeddings using Pinecone's hosted model
-        embeddings_response = pc.inference.embed(
-            model="multilingual-e5-large",
-            inputs=texts,
-            parameters={
-                "input_type": "passage",
-                "truncate": "END"
-            }
-        )
-
-        # Prepare vectors for upsert
-        vectors = []
-        for i, record in enumerate(data_records):
-            vectors.append({
-                "id": record["id"],
-                "values": embeddings_response[i]["values"],
-                "metadata": {
-                    "text": record["text"],
-                    "section": record["section"],
-                    "job_id": record["job_id"]
-                }
-            })
-
-        # Upsert vectors to Pinecone
-        index.upsert(
-            vectors=vectors,
-            namespace=namespace
-        )
-
-        logger.info(f"Successfully stored {len(vectors)} vectors in Pinecone namespace={namespace}")
-    except Exception as e:
-        logger.error(f"Error upserting to Pinecone: {str(e)}", exc_info=True)
-        raise
-
+    logger.info(f"store_briefing_in_vector_db called for job_id={job_id}")
     return job_id
 
 
 async def query_briefing_rag(vector_db_id: str, query: str) -> Dict[str, Any]:
     """
-    Query the briefing using RAG with Pinecone Inference API.
-
-    Args:
-        vector_db_id: Vector DB ID (job_id) - used to derive namespace
-        query: User query
-
-    Returns:
-        Dictionary with answer and sources
+    Query the briefing using the in-memory context.
     """
-    # Derive namespace from vector_db_id (server-side, not client-provided)
-    namespace = get_namespace_for_job(vector_db_id)
-
-    # Generate query embedding using Pinecone Inference API
-    try:
-        # Generate query embedding using Pinecone's hosted model
-        query_embedding_response = pc.inference.embed(
-            model="multilingual-e5-large",
-            inputs=[query],
-            parameters={
-                "input_type": "query",
-                "truncate": "END"
-            }
-        )
-
-        # Extract the embedding values
-        query_embedding = query_embedding_response[0]["values"]
-
-        # Search Pinecone with the query embedding
-        results = index.query(
-            vector=query_embedding,
-            top_k=3,
-            namespace=namespace,
-            include_metadata=True
-        )
-    except Exception as e:
-        logger.error(f"Error querying Pinecone: {str(e)}", exc_info=True)
+    logger.info(f"query_briefing_rag called for vector_db_id={vector_db_id}")
+    
+    briefing_context = get_briefing_context(vector_db_id)
+    
+    if briefing_context == "No briefing context available.":
         return {
-            "answer": "Error querying the briefing database.",
+            "answer": "No briefing data available to answer your question.",
             "sources": []
         }
 
-    # Extract documents and metadata from results
-    documents = []
-    metadatas = []
-
-    if hasattr(results, 'matches') and results.matches:
-        for match in results.matches:
-            if match.metadata:
-                documents.append(match.metadata.get("text", ""))
-                metadatas.append(match.metadata)
-
-    if not documents:
-        return {
-            "answer": "No relevant information found in the briefing.",
-            "sources": []
-        }
-
-    # Use LLM to generate answer
     llm = get_llm(temperature=0.3)
 
-    rag_prompt = ChatPromptTemplate.from_messages([
+    prompt = ChatPromptTemplate.from_messages([
         ("system", """You are a helpful assistant answering questions about a negotiation briefing.
 Use the provided context to answer the question accurately and concisely.
 If the context doesn't contain enough information, say so."""),
-        ("user", """Context from briefing:
+        ("user", """Briefing Context:
 {context}
 
 Question: {question}
@@ -254,114 +273,90 @@ Question: {question}
 Answer:""")
     ])
 
-    chain = rag_prompt | llm
+    chain = prompt | llm
 
-    context = "\n\n".join(documents)
-
+    try:
     response = await chain.ainvoke({
-        "context": context,
+            "context": briefing_context,
         "question": query
     })
-
-    # Extract sources
-    sources = [meta.get("section", "unknown") for meta in metadatas]
-
-    return {
-        "answer": response.content,
-        "sources": sources
-    }
+        return {
+            "answer": response.content,
+            "sources": ["briefing"]
+        }
+    except Exception as e:
+        logger.error(f"Error in query_briefing_rag: {str(e)}", exc_info=True)
+        return {
+            "answer": "Error generating response.",
+            "sources": []
+        }
 
 
 # Action-specific system prompts
 ACTION_PROMPTS = {
-    "arguments": """You are a real-time negotiation coach helping during a live call.
-Based on the conversation context and the briefing data, provide 1-3 SHORT, actionable argument suggestions.
+    "arguments": """You are a real-time negotiation coach. Provide 1-3 SHORT argument suggestions.
 
-Rules:
-- Each suggestion should be 1-2 sentences MAX
-- Focus on persuasive arguments the user can make RIGHT NOW
-- Use data from the briefing to back up arguments
-- Be specific and actionable, not generic
-- Format as a numbered list (1. 2. 3.)
+CRITICAL FORMAT RULES:
+• Start each point with a bullet (•)
+• Each point must be ONE short sentence (max 10-15 words)
+• Use simple, direct language that can be read at a glance
+• No explanations, no context, no fluff - just the argument
+• Reference specific facts/numbers from the briefing
 
-If the context doesn't have relevant information, give general negotiation tips based on the conversation.""",
+Example format:
+• Point to their 15% market share decline as leverage
+• Counter their price claim with competitor's $X offer
+• Mention the 90-day payment terms flexibility""",
 
-    "outcome": """You are a real-time negotiation analyst helping during a live call.
-Based on the conversation context and the briefing data, provide a brief outcome analysis.
+    "outcome": """You are a real-time negotiation analyst. Provide 1-3 SHORT outcome observations.
 
-Rules:
-- Analyze how the current conversation points relate to the user's goals
-- Highlight what's going well and what needs attention
-- Keep each point to 1-2 sentences MAX
-- Maximum 3 key observations
-- Format as a numbered list (1. 2. 3.)
-- Focus on actionable insights, not just observations
+CRITICAL FORMAT RULES:
+• Start each point with a bullet (•)
+• Each point must be ONE short sentence (max 10-15 words)
+• Focus on: progress toward goals, risks emerging, opportunities spotted
+• No explanations, no context - just the observation
+• Be direct and actionable
 
-Reference the specific goals from the briefing when relevant."""
+Example format:
+• On track for target price, watch delivery timeline
+• Risk: they're pushing for exclusivity clause
+• Opportunity: they mentioned budget flexibility"""
 }
 
 
 async def query_for_action_insights(
     vector_db_id: str,
-    conversation_messages: list[dict],
+    conversation_messages: list,
     action_type: str,
     goals: str | None = None
 ) -> dict:
     """
-    Query Pinecone for action-specific insights based on conversation.
-
+    Query for action-specific insights using briefing context.
+    
     Args:
-        vector_db_id: Vector DB ID (job_id) for namespace
-        conversation_messages: List of conversation messages with 'text' and optional 'speaker_id'
+        vector_db_id: Job ID to look up briefing
+        conversation_messages: List of conversation messages
         action_type: Either "arguments" or "outcome"
-        goals: Optional goals string to include in context
-
+        goals: Optional goals string
+        
     Returns:
-        Dictionary with insights list
+        Dictionary with insights
     """
-    namespace = get_namespace_for_job(vector_db_id)
+    logger.info(f"query_for_action_insights called for vector_db_id={vector_db_id}, action_type={action_type}")
+    
+    # Get action-specific briefing context
+    briefing_context = get_briefing_context(vector_db_id, action_type=action_type)
     
     # Build conversation context
     conversation_text = "\n".join([
         f"{'User' if msg.get('speaker_id') == 'user' else 'Other'}: {msg.get('text', '')}"
-        for msg in conversation_messages[-10:]  # Last 10 messages for context
-    ])
+        for msg in conversation_messages[-10:]
+    ]) if conversation_messages else "No conversation yet."
     
-    # Generate query embedding from recent conversation using Pinecone Inference API
-    query_text = conversation_text if conversation_text else "negotiation strategy"
-    
-    # Search Pinecone for relevant briefing context
-    briefing_context = ""
-    try:
-        # Generate embedding using Pinecone's hosted model
-        query_embedding_response = pc.inference.embed(
-            model="multilingual-e5-large",
-            inputs=[query_text],
-            parameters={
-                "input_type": "query",
-                "truncate": "END"
-            }
-        )
-        query_embedding = query_embedding_response[0]["values"]
-        
-        results = index.query(
-            vector=query_embedding,
-            top_k=5,
-            namespace=namespace,
-            include_metadata=True
-        )
-        
-        if hasattr(results, 'matches') and results.matches:
-            for match in results.matches:
-                if match.metadata and match.metadata.get("text"):
-                    briefing_context += match.metadata.get("text", "") + "\n\n"
-    except Exception as e:
-        logger.error(f"Error querying Pinecone for insights: {str(e)}", exc_info=True)
-    
-    # Get system prompt for action type
+    # Get system prompt
     system_prompt = ACTION_PROMPTS.get(action_type, ACTION_PROMPTS["arguments"])
+    goals_section = f"User's Goals:\n{goals}" if goals else ""
     
-    # Build the full prompt
     llm = get_llm(temperature=0.4)
     
     prompt = ChatPromptTemplate.from_messages([
@@ -377,18 +372,16 @@ Current Conversation:
 Provide your insights:""")
     ])
     
-    goals_section = f"User's Goals:\n{goals}" if goals else ""
-    
     chain = prompt | llm
     
     try:
         response = await chain.ainvoke({
-            "briefing_context": briefing_context or "No specific briefing data available.",
+            "briefing_context": briefing_context,
             "goals_section": goals_section,
-            "conversation": conversation_text or "No conversation yet."
+            "conversation": conversation_text
         })
-        
-        return {
+
+    return {
             "insights": response.content,
             "action_type": action_type
         }
@@ -402,52 +395,25 @@ Provide your insights:""")
 
 async def stream_action_insights(
     vector_db_id: str,
-    conversation_messages: list[dict],
+    conversation_messages: list,
     action_type: str,
     goals: str | None = None
 ):
     """
-    Stream action-specific insights based on conversation.
+    Stream action-specific insights using briefing context.
     
     Yields chunks of the response as they are generated.
     """
-    namespace = get_namespace_for_job(vector_db_id)
+    logger.info(f"stream_action_insights called for vector_db_id={vector_db_id}, action_type={action_type}")
+    
+    # Get action-specific briefing context
+    briefing_context = get_briefing_context(vector_db_id, action_type=action_type)
     
     # Build conversation context
     conversation_text = "\n".join([
         f"{'User' if msg.get('speaker_id') == 'user' else 'Other'}: {msg.get('text', '')}"
         for msg in conversation_messages[-10:]
-    ])
-    
-    # Generate query embedding using Pinecone Inference API
-    query_text = conversation_text if conversation_text else "negotiation strategy"
-    
-    # Search Pinecone
-    briefing_context = ""
-    try:
-        # Generate embedding using Pinecone's hosted model
-        query_embedding_response = pc.inference.embed(
-            model="multilingual-e5-large",
-            inputs=[query_text],
-            parameters={
-                "input_type": "query",
-                "truncate": "END"
-            }
-        )
-        query_embedding = query_embedding_response[0]["values"]
-        
-        results = index.query(
-            vector=query_embedding,
-            top_k=5,
-            namespace=namespace,
-            include_metadata=True
-        )
-        if hasattr(results, 'matches') and results.matches:
-            for match in results.matches:
-                if match.metadata and match.metadata.get("text"):
-                    briefing_context += match.metadata.get("text", "") + "\n\n"
-    except Exception as e:
-        logger.error(f"Error querying Pinecone: {str(e)}", exc_info=True)
+    ]) if conversation_messages else "No conversation yet."
     
     # Get system prompt
     system_prompt = ACTION_PROMPTS.get(action_type, ACTION_PROMPTS["arguments"])
@@ -478,27 +444,32 @@ Provide your insights:""")
     
     chain = prompt | streaming_llm
     
-    async for chunk in chain.astream({
-        "briefing_context": briefing_context or "No specific briefing data available.",
-        "goals_section": goals_section,
-        "conversation": conversation_text or "No conversation yet."
-    }):
-        if hasattr(chunk, 'content') and chunk.content:
-            yield chunk.content
+    try:
+        async for chunk in chain.astream({
+            "briefing_context": briefing_context,
+            "goals_section": goals_section,
+            "conversation": conversation_text
+        }):
+            if hasattr(chunk, 'content') and chunk.content:
+                yield chunk.content
+    except Exception as e:
+        logger.error(f"Error streaming insights: {str(e)}", exc_info=True)
+        yield "Unable to generate insights at this time."
 
 
-METRICS_PROMPT = """You are a real-time negotiation metrics analyzer. Based on the conversation and briefing context, evaluate the current negotiation state.
+# Metrics analysis prompt
+METRICS_PROMPT = """You are a real-time negotiation metrics analyzer. Based on the briefing context and conversation, evaluate the current negotiation state.
 
 Return ONLY a JSON object with exactly these three metrics (0-100 scale):
-- value: How much value is the user capturing? (0=poor deal, 100=excellent deal)
-- risk: Current risk level for the user (0=very safe, 100=very risky)
-- outcome: Likelihood of achieving stated goals (0=unlikely, 100=very likely)
+- value: How much value is the user capturing? (0=poor deal, 100=excellent deal based on target position)
+- risk: Current risk level for the user (0=very safe, 100=very risky based on briefing risks)
+- outcome: Likelihood of achieving stated goals (0=unlikely, 100=very likely based on strategy)
 
-Consider:
-- Price discussions and concessions made
-- Relationship dynamics and counterparty attitude
-- Progress toward stated goals
-- Red flags or positive signals
+Consider from the briefing:
+- Target position vs current discussion points
+- Identified risks and whether they're being mitigated
+- Leverage points being used or missed
+- Progress toward opening/target/walkaway positions
 
 Respond with ONLY valid JSON, no other text:
 {"value": <number>, "risk": <number>, "outcome": <number>}"""
@@ -506,60 +477,35 @@ Respond with ONLY valid JSON, no other text:
 
 async def analyze_conversation_metrics(
     vector_db_id: str,
-    conversation_messages: list[dict],
+    conversation_messages: list,
     goals: str | None = None
 ) -> dict:
     """
-    Analyze conversation to produce real-time metrics.
-
+    Analyze conversation to produce real-time metrics using briefing context.
+    
     Args:
-        vector_db_id: Vector DB ID (job_id) for namespace
+        vector_db_id: Job ID to look up briefing
         conversation_messages: List of conversation messages
         goals: Optional goals string
-
+        
     Returns:
         Dictionary with value, risk, outcome (0-100 each)
     """
-    namespace = get_namespace_for_job(vector_db_id)
+    logger.info(f"analyze_conversation_metrics called for vector_db_id={vector_db_id}")
+    
+    # Get metrics-specific briefing context
+    briefing_context = get_briefing_context(vector_db_id, action_type="metrics")
     
     # Build conversation context
     conversation_text = "\n".join([
         f"{'User' if msg.get('speaker_id') == 'user' else 'Other'}: {msg.get('text', '')}"
-        for msg in conversation_messages[-15:]  # Last 15 messages
-    ])
+        for msg in conversation_messages[-15:]
+    ]) if conversation_messages else ""
     
     # If no conversation, return neutral metrics
     if not conversation_text.strip():
         return {"value": 50, "risk": 50, "outcome": 50}
     
-    # Search Pinecone for relevant briefing context using Pinecone Inference API
-    briefing_context = ""
-    try:
-        # Generate embedding using Pinecone's hosted model
-        query_embedding_response = pc.inference.embed(
-            model="multilingual-e5-large",
-            inputs=[conversation_text],
-            parameters={
-                "input_type": "query",
-                "truncate": "END"
-            }
-        )
-        query_embedding = query_embedding_response[0]["values"]
-        
-        results = index.query(
-            vector=query_embedding,
-            top_k=3,
-            namespace=namespace,
-            include_metadata=True
-        )
-        if hasattr(results, 'matches') and results.matches:
-            for match in results.matches:
-                if match.metadata and match.metadata.get("text"):
-                    briefing_context += match.metadata.get("text", "") + "\n\n"
-    except Exception as e:
-        logger.error(f"Error querying Pinecone for metrics: {str(e)}", exc_info=True)
-    
-    # Build prompt
     goals_section = f"User's Goals:\n{goals}" if goals else ""
     
     llm = get_llm(temperature=0.2)
@@ -581,7 +527,7 @@ Analyze and return metrics JSON:""")
     
     try:
         response = await chain.ainvoke({
-            "briefing_context": briefing_context or "No briefing data available.",
+            "briefing_context": briefing_context,
             "goals_section": goals_section,
             "conversation": conversation_text
         })

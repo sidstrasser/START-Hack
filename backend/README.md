@@ -1,6 +1,6 @@
 # Negotiation Briefing MAS Backend
 
-Multi-Agent System (MAS) for automated negotiation briefing generation using LangGraph, OpenAI GPT-4o, and Pinecone.
+Multi-Agent System (MAS) for automated negotiation briefing generation using LangGraph and OpenAI GPT-4o.
 
 ## Features
 
@@ -12,7 +12,7 @@ Multi-Agent System (MAS) for automated negotiation briefing generation using Lan
   - Potential Agent: Identifies leverage points and opportunities
   - Briefing Agent: Creates comprehensive negotiation briefing
 - **Real-time Progress Tracking**: Server-Sent Events (SSE) for live updates
-- **Vector Database**: Pinecone for RAG queries during calls with namespace isolation
+- **Vector Database**: Currently disabled (awaiting new instructions)
 - **RESTful API**: FastAPI endpoints for Next.js frontend
 
 ## Tech Stack
@@ -20,7 +20,6 @@ Multi-Agent System (MAS) for automated negotiation briefing generation using Lan
 - FastAPI
 - LangGraph + LangChain
 - OpenAI GPT-4o
-- Pinecone (cloud vector database)
 - pdfplumber
 - Tavily Search API
 
@@ -47,8 +46,6 @@ Edit `.env`:
 ```env
 OPENAI_API_KEY=sk-...
 TAVILY_API_KEY=tvly-...
-PINECONE_API_KEY=your-pinecone-api-key
-PINECONE_INDEX_NAME=Accordio
 ```
 
 ### 3. Run the Server
@@ -143,7 +140,7 @@ backend/
 │   │   └── models.py              # Pydantic models
 │   ├── services/
 │   │   ├── pdf_parser.py          # PDF extraction
-│   │   ├── vector_store.py        # Pinecone + RAG
+│   │   ├── vector_store.py        # Vector DB (disabled)
 │   │   ├── progress_tracker.py    # SSE progress
 │   │   └── mas_pipeline.py        # MAS orchestration
 │   ├── agents/
@@ -195,8 +192,7 @@ for event in client.events():
 
 ## Notes
 
-- Pinecone provides cloud-based vector storage with namespace isolation per user flow
-- Each job_id uses its own namespace to ensure data isolation
+- Vector database functionality is currently disabled (awaiting new instructions)
 - Background tasks use FastAPI's built-in BackgroundTasks (no Celery needed)
 - Progress tracking via in-memory queues (sufficient for hackathon)
 - For production: Add database, job queue (Redis), authentication
@@ -214,11 +210,6 @@ for event in client.events():
 **Issue**: Tavily search fails
 - Check Tavily API key
 - Research agent will use fallback data if search fails
-
-**Issue**: Pinecone connection errors
-- Check your Pinecone API key in `.env`
-- Verify the index name matches your Pinecone index (default: "Accordio")
-- Ensure the index exists in your Pinecone project
 
 ## License
 

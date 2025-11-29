@@ -2,7 +2,6 @@ from app.agents.graph import negotiation_graph
 from app.agents.state import NegotiationState
 from app.api.routes import get_documents_store, get_briefings_store
 from app.services.progress_tracker import progress_tracker
-from app.services.vector_store import store_briefing_in_vector_db
 
 
 async def run_mas_pipeline(job_id: str, document_id: str, additional_context: dict):
@@ -89,14 +88,12 @@ async def run_mas_pipeline(job_id: str, document_id: str, additional_context: di
             })
             return
 
-        # Save final result (without storing to Pinecone yet)
-        # Pinecone storage will happen when user clicks "Use in Live Call"
+        # Save final result
         logger.info(f"[PIPELINE] Storing briefing in briefings_store for job_id={job_id}")
         briefings_store[job_id] = {
             "status": "completed",
             "briefing": final_state["final_briefing"],
-            "vector_db_id": None,  # Will be set when stored to Pinecone
-            "stored_to_pinecone": False,  # Track if already stored
+            "vector_db_id": job_id,  # Use job_id as vector_db_id
             "normalized_goals": final_state.get("normalized_goals"),
             "deal_type": final_state.get("deal_type"),
             "research_results": final_state.get("research_results"),

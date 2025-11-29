@@ -41,11 +41,7 @@ try:
 except ImportError as e:
     print(f"❌ OpenAI: {e}")
 
-try:
-    from pinecone import Pinecone
-    print("✅ Pinecone")
-except ImportError as e:
-    print(f"❌ Pinecone: {e}")
+print("⚠️  Vector DB: disabled (awaiting new instructions)")
 
 try:
     import pdfplumber
