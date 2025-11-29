@@ -571,3 +571,110 @@ Analyze and return metrics JSON:""")
     except Exception as e:
         logger.error(f"[METRICS DEBUG] Error analyzing metrics: {str(e)}", exc_info=True)
         return {"value": 50, "risk": 50, "outcome": 50}
+
+
+# Action items analysis prompt
+ACTION_ITEMS_PROMPT = """You are analyzing a negotiation conversation to determine which action items have been completed.
+
+Given the conversation transcript and a list of action items, determine which items have been accomplished based on what was discussed.
+
+Action Items to evaluate:
+{action_items}
+
+Rules:
+- Only mark an item as completed if there's clear evidence in the conversation
+- Be conservative - if unsure, don't mark as completed
+- Look for explicit mentions, discussions, or clear indications that the action was taken
+
+Return ONLY a JSON array of the IDs of completed items, like: [1, 3, 5]
+If no items are completed, return: []"""
+
+
+async def analyze_action_items_completion(
+    vector_db_id: str,
+    conversation_messages: list,
+    action_items: list,
+    already_completed_ids: list
+) -> dict:
+    """
+    Analyze conversation to determine which action items have been completed.
+    
+    Args:
+        vector_db_id: Job ID to look up briefing
+        conversation_messages: List of conversation messages
+        action_items: List of action items with id, text, completed
+        already_completed_ids: IDs that are already completed (preserve these)
+        
+    Returns:
+        Dictionary with completedIds and newlyCompletedIds
+    """
+    logger.info(f"[ACTION ITEMS] Analyzing {len(action_items)} items against {len(conversation_messages)} messages")
+    
+    # Build conversation context
+    conversation_text = "\n".join([
+        f"{'User' if msg.get('speaker_id') == 'user' else 'Other'}: {msg.get('text', '')}"
+        for msg in conversation_messages[-20:]
+    ]) if conversation_messages else ""
+    
+    if not conversation_text.strip():
+        return {
+            "completedIds": already_completed_ids,
+            "newlyCompletedIds": []
+        }
+    
+    # Format action items for the prompt
+    items_text = "\n".join([
+        f"- ID {item['id']}: {item['text']}"
+        for item in action_items
+    ])
+    
+    llm = get_llm(temperature=0.1)  # Low temperature for consistent results
+    
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", ACTION_ITEMS_PROMPT),
+        ("user", """Conversation:
+{conversation}
+
+Which action items (by ID) have been completed? Return ONLY a JSON array:""")
+    ])
+    
+    chain = prompt | llm
+    
+    try:
+        response = await chain.ainvoke({
+            "action_items": items_text,
+            "conversation": conversation_text
+        })
+        
+        content = response.content.strip()
+        logger.info(f"[ACTION ITEMS] LLM response: {content}")
+        
+        # Parse JSON array from response
+        import re
+        json_match = re.search(r'\[[\d,\s]*\]', content)
+        if json_match:
+            ai_completed_ids = json.loads(json_match.group())
+            logger.info(f"[ACTION ITEMS] AI detected completed: {ai_completed_ids}")
+        else:
+            ai_completed_ids = []
+            logger.warning(f"[ACTION ITEMS] Could not parse response: {content}")
+        
+        # Combine with already completed (preserve them)
+        all_completed = set(already_completed_ids) | set(ai_completed_ids)
+        
+        # Find newly completed (in AI list but not in already completed)
+        newly_completed = [id for id in ai_completed_ids if id not in already_completed_ids]
+        
+        result = {
+            "completedIds": list(all_completed),
+            "newlyCompletedIds": newly_completed
+        }
+        logger.info(f"[ACTION ITEMS] Result: {result}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"[ACTION ITEMS] Error: {str(e)}", exc_info=True)
+        return {
+            "completedIds": already_completed_ids,
+            "newlyCompletedIds": []
+        }

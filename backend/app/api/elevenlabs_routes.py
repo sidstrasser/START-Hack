@@ -86,6 +86,27 @@ class MetricsResponse(BaseModel):
     outcome: int  # 0-100
 
 
+class ActionItem(BaseModel):
+    """Single action item."""
+    id: int
+    text: str
+    completed: bool
+
+
+class ActionItemsRequest(BaseModel):
+    """Request model for action items analysis endpoint."""
+    vectorDbId: str
+    messages: List[dict]
+    actionItems: List[ActionItem]
+    alreadyCompletedIds: List[int] = []  # IDs that were already completed (don't un-complete)
+
+
+class ActionItemsResponse(BaseModel):
+    """Response model for action items analysis."""
+    completedIds: List[int]  # IDs of items that should be marked completed
+    newlyCompletedIds: List[int]  # IDs that were just completed (for toast)
+
+
 @router.post("/elevenlabs/connect", response_model=ConnectResponse)
 async def connect():
     """
@@ -369,4 +390,52 @@ async def get_conversation_metrics(request: MetricsRequest):
         raise HTTPException(
             status_code=500, 
             detail=f"Failed to analyze metrics: {str(e)}"
+        )
+
+
+@router.post("/elevenlabs/action-items", response_model=ActionItemsResponse)
+async def analyze_action_items(request: ActionItemsRequest):
+    """
+    Analyze conversation to determine which action items have been completed.
+    
+    Args:
+        request: Action items, messages, and already completed IDs
+        
+    Returns:
+        List of completed item IDs and newly completed IDs (for toast)
+    """
+    from app.services.vector_store import analyze_action_items_completion
+    
+    messages = request.messages or []
+    
+    if not messages:
+        # No conversation yet, return only already completed
+        return ActionItemsResponse(
+            completedIds=request.alreadyCompletedIds,
+            newlyCompletedIds=[]
+        )
+    
+    try:
+        # Convert action items to dict format
+        action_items = [
+            {"id": item.id, "text": item.text, "completed": item.completed}
+            for item in request.actionItems
+        ]
+        
+        result = await analyze_action_items_completion(
+            vector_db_id=request.vectorDbId,
+            conversation_messages=messages,
+            action_items=action_items,
+            already_completed_ids=request.alreadyCompletedIds
+        )
+        
+        return ActionItemsResponse(
+            completedIds=result["completedIds"],
+            newlyCompletedIds=result["newlyCompletedIds"]
+        )
+    except Exception as e:
+        # On error, return only already completed (don't break the UI)
+        return ActionItemsResponse(
+            completedIds=request.alreadyCompletedIds,
+            newlyCompletedIds=[]
         )

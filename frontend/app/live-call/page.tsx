@@ -9,6 +9,7 @@ import {
   InsightsPanel,
   ActionButtonsGroup,
 } from "./components";
+import Toast from "./components/Toast";
 
 // Backend API base URL
 const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
@@ -25,6 +26,12 @@ interface Transcript {
   timestamp?: number;
 }
 
+interface ToastMessage {
+  id: number;
+  message: string;
+  type: "success" | "info";
+}
+
 export default function LiveCall() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -33,6 +40,8 @@ export default function LiveCall() {
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const transcriptPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const metricsPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const actionItemsPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const toastIdRef = useRef(0);
 
   // UI State
   const [isLoading, setIsLoading] = useState(true);
@@ -40,6 +49,7 @@ export default function LiveCall() {
   const [isRecording, setIsRecording] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [showTranscripts, setShowTranscripts] = useState(false);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
   
   // Data State
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
@@ -60,6 +70,16 @@ export default function LiveCall() {
   ]);
 
   const isDev = process.env.NODE_ENV === "development";
+
+  // Toast helper
+  const showToast = useCallback((message: string, type: "success" | "info" = "success") => {
+    const id = ++toastIdRef.current;
+    setToasts(prev => [...prev, { id, message, type }]);
+  }, []);
+
+  const removeToast = useCallback((id: number) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
 
   // Load session data on mount
   useEffect(() => {
@@ -129,6 +149,79 @@ export default function LiveCall() {
       }
     };
   }, [vectorDbId, fetchMetrics]);
+
+  // Fetch action items completion status from backend
+  const fetchActionItemsStatus = useCallback(async () => {
+    if (!vectorDbId || transcripts.length === 0) return;
+
+    console.log("[ActionItems] Checking completion status...");
+
+    // Get already completed IDs (these should not be un-completed)
+    const alreadyCompletedIds = actionPoints
+      .filter(p => p.completed)
+      .map(p => p.id);
+
+    try {
+      const response = await fetch(`${BACKEND_API_URL}/api/elevenlabs/action-items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vectorDbId,
+          messages: transcripts,
+          actionItems: actionPoints,
+          alreadyCompletedIds
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("[ActionItems] Response:", data);
+
+        // Update action points with completed status
+        if (data.completedIds && data.completedIds.length > 0) {
+          setActionPoints(prev => 
+            prev.map(point => ({
+              ...point,
+              completed: data.completedIds.includes(point.id) || point.completed
+            }))
+          );
+        }
+
+        // Show toast for newly completed items
+        if (data.newlyCompletedIds && data.newlyCompletedIds.length > 0) {
+          data.newlyCompletedIds.forEach((id: number) => {
+            const item = actionPoints.find(p => p.id === id);
+            if (item) {
+              showToast(`✓ ${item.text}`, "success");
+            }
+          });
+        }
+      }
+    } catch (err) {
+      console.error("[ActionItems] Error:", err);
+    }
+  }, [vectorDbId, transcripts, actionPoints, showToast]);
+
+  // Start action items polling (every 20 seconds, same as metrics)
+  useEffect(() => {
+    if (!vectorDbId) return;
+
+    console.log("[ActionItems] Starting polling interval (20s)");
+    
+    // Initial fetch after a short delay
+    const initialTimeout = setTimeout(fetchActionItemsStatus, 2000);
+    
+    // Then poll every 20 seconds
+    actionItemsPollIntervalRef.current = setInterval(fetchActionItemsStatus, 20000);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      if (actionItemsPollIntervalRef.current) {
+        clearInterval(actionItemsPollIntervalRef.current);
+        actionItemsPollIntervalRef.current = null;
+      }
+    };
+  }, [vectorDbId, fetchActionItemsStatus]);
 
   // Recording functions
   const startRecording = async () => {
@@ -353,6 +446,7 @@ export default function LiveCall() {
     return () => {
       if (transcriptPollIntervalRef.current) clearInterval(transcriptPollIntervalRef.current);
       if (metricsPollIntervalRef.current) clearInterval(metricsPollIntervalRef.current);
+      if (actionItemsPollIntervalRef.current) clearInterval(actionItemsPollIntervalRef.current);
       processorRef.current?.disconnect();
       audioContextRef.current?.close();
       audioStreamRef.current?.getTracks().forEach(track => track.stop());
@@ -429,6 +523,18 @@ export default function LiveCall() {
           onArgumentsClick={() => handleActionButtonClick(() => analyzeConversation("arguments"))}
           onOutcomeClick={() => handleActionButtonClick(() => analyzeConversation("outcome"))}
         />
+      </div>
+
+      {/* Toast notifications - centered */}
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex flex-col items-center gap-3">
+        {toasts.map((toast) => (
+          <Toast
+            key={toast.id}
+            message={toast.message}
+            type={toast.type}
+            onClose={() => removeToast(toast.id)}
+          />
+        ))}
       </div>
     </main>
   );
