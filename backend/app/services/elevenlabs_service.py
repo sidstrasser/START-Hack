@@ -19,7 +19,8 @@ class TranscriptEntry:
     def __init__(self, text: str, speaker_id: Optional[str] = None):
         self.text = text
         self.speaker_id = speaker_id
-        self.timestamp = time.time()
+        # Convert to milliseconds for JavaScript Date compatibility
+        self.timestamp = int(time.time() * 1000)
     
     def to_dict(self):
         return {

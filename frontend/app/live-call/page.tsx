@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Metric from "../components/Metric";
 import ActionButton from "../components/ActionButton";
+import TranscriptSidebar from "../components/TranscriptSidebar";
 
 // Backend API base URL
 const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
@@ -20,6 +21,7 @@ export default function LiveCall() {
   const [isRecording, setIsRecording] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [transcripts, setTranscripts] = useState<Array<{text: string; speaker_id?: string; timestamp?: number}>>([]);
+  const [showTranscripts, setShowTranscripts] = useState(false);
   const [metrics] = useState({
     value: "$125,000",
     risk: "Medium",
@@ -235,7 +237,10 @@ export default function LiveCall() {
             const newTranscripts = data.transcripts.map((t: any) => ({
               text: t.text,
               speaker_id: t.speaker_id || undefined,
-              timestamp: t.timestamp || Date.now()
+              // Convert to milliseconds if timestamp is in seconds (backward compatibility)
+              timestamp: t.timestamp 
+                ? (t.timestamp < 10000000000 ? t.timestamp * 1000 : t.timestamp)
+                : Date.now()
             }));
             setTranscripts((prev) => [...prev, ...newTranscripts]);
           }
@@ -462,160 +467,108 @@ export default function LiveCall() {
       </div>
 
       {/* Right side - Chat bar with metrics and actions (1/3 of screen) */}
-      <div className="w-1/3 bg-gray-50 flex flex-col border-l border-gray-200">
-        {/* Metrics Section at the top */}
-        <div className="p-4 border-b border-gray-200 bg-white">
-          <h2 className="text-sm font-semibold mb-3 text-gray-800">Metrics</h2>
-          <div className="space-y-2.5">
-            <Metric
-              label="Value"
-              value={metrics.value}
-              color="blue"
-              fillPercentage={75}
-            />
-            <Metric
-              label="Risk"
-              value={metrics.risk}
-              color="yellow"
-              fillPercentage={50}
-            />
-            <Metric
-              label="Price"
-              value={metrics.price}
-              color="green"
-              fillPercentage={60}
-            />
-          </div>
+      <div className="w-1/3 bg-gray-50 flex flex-col border-l border-gray-200 relative overflow-hidden">
+        {/* Metrics/Transcripts View Toggle */}
+        <div className={`absolute inset-0 transition-transform duration-300 ease-in-out ${
+          showTranscripts ? 'translate-x-0' : 'translate-x-full'
+        }`}>
+          <TranscriptSidebar 
+            transcripts={transcripts} 
+            onBack={() => setShowTranscripts(false)} 
+          />
         </div>
 
-        {/* Transcripts Section - scrollable area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {transcripts.length === 0 ? (
-            <div className="text-center text-gray-400 text-sm py-8">
-              <svg
-                className="w-12 h-12 mx-auto mb-2 opacity-50"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                />
-              </svg>
-              <p>No transcripts yet</p>
-              <p className="text-xs mt-1">Click an action button to commit audio</p>
-            </div>
-          ) : (
-            transcripts.map((transcript, index) => (
-              <div
-                key={index}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                    transcript.speaker_id 
-                      ? transcript.speaker_id === '0' 
-                        ? 'bg-blue-100' 
-                        : 'bg-purple-100'
-                      : 'bg-gray-100'
-                  }`}>
-                    {transcript.speaker_id ? (
-                      <span className={`text-xs font-semibold ${
-                        transcript.speaker_id === '0' ? 'text-blue-600' : 'text-purple-600'
-                      }`}>
-                        {transcript.speaker_id}
-                      </span>
-                    ) : (
-                      <svg
-                        className="w-4 h-4 text-gray-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    {transcript.speaker_id && (
-                      <p className="text-xs font-medium text-gray-500 mb-1">
-                        Speaker {transcript.speaker_id}
-                      </p>
-                    )}
-                    <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap break-words">
-                      {transcript.text}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-2">
-                      {transcript.timestamp 
-                        ? new Date(transcript.timestamp).toLocaleTimeString()
-                        : new Date().toLocaleTimeString()}
-                    </p>
-                  </div>
-                </div>
+        {/* Metrics View */}
+        <div className={`absolute inset-0 transition-transform duration-300 ease-in-out ${
+          showTranscripts ? '-translate-x-full' : 'translate-x-0'
+        }`}>
+          <div className="h-full flex flex-col">
+            {/* Metrics Section at the top */}
+            <div className="p-4 border-b border-gray-200 bg-white">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-gray-800">Metrics</h2>
+                <button
+                  onClick={() => setShowTranscripts(true)}
+                  className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md transition-colors"
+                >
+                  Show Conversation
+                </button>
               </div>
-            ))
-          )}
-        </div>
+              <div className="space-y-2.5">
+                <Metric
+                  label="Value"
+                  value={metrics.value}
+                  color="blue"
+                  fillPercentage={75}
+                />
+                <Metric
+                  label="Risk"
+                  value={metrics.risk}
+                  color="yellow"
+                  fillPercentage={50}
+                />
+                <Metric
+                  label="Price"
+                  value={metrics.price}
+                  color="green"
+                  fillPercentage={60}
+                />
+              </div>
+            </div>
 
-        {/* Action Buttons at the bottom */}
-        <div className="mt-auto p-6 border-t border-gray-200 bg-white">
-          <div className="flex items-center justify-center gap-4">
-            <ActionButton
-              icon={
-                <svg
-                  className="w-8 h-8"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                  />
-                </svg>
-              }
-              tooltip="Argument"
-              color="blue"
-              onClick={() => {
-                handleActionButtonClick(() => {
-                  // Mock action - no functionality yet
-                });
-              }}
-            />
-            <ActionButton
-              icon={
-                <svg
-                  className="w-8 h-8"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  />
-                </svg>
-              }
-              tooltip="Outcome Analysis"
-              color="purple"
-              onClick={() => {
-                handleActionButtonClick(() => {
-                  // Mock action - no functionality yet
-                });
-              }}
-            />
+            {/* Action Buttons at the bottom */}
+            <div className="mt-auto p-6 border-t border-gray-200 bg-white">
+              <div className="flex items-center justify-center gap-4">
+                <ActionButton
+                  icon={
+                    <svg
+                      className="w-8 h-8"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                      />
+                    </svg>
+                  }
+                  tooltip="Argument"
+                  color="blue"
+                  onClick={() => {
+                    handleActionButtonClick(() => {
+                      // Mock action - no functionality yet
+                    });
+                  }}
+                />
+                <ActionButton
+                  icon={
+                    <svg
+                      className="w-8 h-8"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                      />
+                    </svg>
+                  }
+                  tooltip="Outcome Analysis"
+                  color="purple"
+                  onClick={() => {
+                    handleActionButtonClick(() => {
+                      // Mock action - no functionality yet
+                    });
+                  }}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
