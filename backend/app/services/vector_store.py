@@ -31,12 +31,17 @@ def get_briefing_data(vector_db_id: str) -> dict | None:
     
     briefings_store = get_briefings_store()
     
+    logger.info(f"[BRIEFING DEBUG] Looking for vector_db_id={vector_db_id}")
+    logger.info(f"[BRIEFING DEBUG] Available keys in store: {list(briefings_store.keys())}")
+    
     if vector_db_id not in briefings_store:
-        logger.warning(f"Briefing not found for vector_db_id={vector_db_id}")
+        logger.warning(f"[BRIEFING DEBUG] Briefing NOT FOUND for vector_db_id={vector_db_id}")
         return None
     
     briefing_data = briefings_store[vector_db_id]
-    return briefing_data.get("briefing", {})
+    briefing = briefing_data.get("briefing", {})
+    logger.info(f"[BRIEFING DEBUG] Found briefing with keys: {list(briefing.keys()) if briefing else 'EMPTY'}")
+    return briefing
 
 
 def get_arguments_context(briefing: dict) -> str:
@@ -471,7 +476,7 @@ Consider from the briefing:
 - Progress toward opening/target/walkaway positions
 
 Respond with ONLY valid JSON, no other text:
-{"value": <number>, "risk": <number>, "outcome": <number>}"""
+{{"value": <number>, "risk": <number>, "outcome": <number>}}"""
 
 
 async def analyze_conversation_metrics(
@@ -490,10 +495,14 @@ async def analyze_conversation_metrics(
     Returns:
         Dictionary with value, risk, outcome (0-100 each)
     """
-    logger.info(f"analyze_conversation_metrics called for vector_db_id={vector_db_id}")
+    logger.info(f"[METRICS DEBUG] Called with vector_db_id={vector_db_id}")
+    logger.info(f"[METRICS DEBUG] conversation_messages count: {len(conversation_messages) if conversation_messages else 0}")
+    logger.info(f"[METRICS DEBUG] goals: {goals[:100] if goals else 'None'}...")
     
     # Get metrics-specific briefing context
     briefing_context = get_briefing_context(vector_db_id, action_type="metrics")
+    logger.info(f"[METRICS DEBUG] briefing_context length: {len(briefing_context)}")
+    logger.info(f"[METRICS DEBUG] briefing_context preview: {briefing_context[:200]}...")
     
     # Build conversation context
     conversation_text = "\n".join([
@@ -501,8 +510,12 @@ async def analyze_conversation_metrics(
         for msg in conversation_messages[-15:]
     ]) if conversation_messages else ""
     
+    logger.info(f"[METRICS DEBUG] conversation_text length: {len(conversation_text)}")
+    logger.info(f"[METRICS DEBUG] conversation_text: {conversation_text[:300]}...")
+    
     # If no conversation, return neutral metrics
     if not conversation_text.strip():
+        logger.info("[METRICS DEBUG] No conversation text - returning neutral 50s")
         return {"value": 50, "risk": 50, "outcome": 50}
     
     goals_section = f"User's Goals:\n{goals}" if goals else ""
@@ -525,6 +538,7 @@ Analyze and return metrics JSON:""")
     chain = prompt | llm
     
     try:
+        logger.info("[METRICS DEBUG] Calling LLM...")
         response = await chain.ainvoke({
             "briefing_context": briefing_context,
             "goals_section": goals_section,
@@ -534,22 +548,26 @@ Analyze and return metrics JSON:""")
         # Parse JSON response
         import re
         content = response.content.strip()
+        logger.info(f"[METRICS DEBUG] LLM response: {content}")
         
         # Try to extract JSON from response
         json_match = re.search(r'\{[^}]+\}', content)
         if json_match:
             metrics = json.loads(json_match.group())
+            logger.info(f"[METRICS DEBUG] Parsed metrics: {metrics}")
             
             # Validate and clamp values
-            return {
+            result = {
                 "value": max(0, min(100, int(metrics.get("value", 50)))),
                 "risk": max(0, min(100, int(metrics.get("risk", 50)))),
                 "outcome": max(0, min(100, int(metrics.get("outcome", 50))))
             }
+            logger.info(f"[METRICS DEBUG] Final result: {result}")
+            return result
         else:
-            logger.warning(f"Could not parse metrics JSON: {content}")
+            logger.warning(f"[METRICS DEBUG] Could not parse metrics JSON: {content}")
             return {"value": 50, "risk": 50, "outcome": 50}
             
     except Exception as e:
-        logger.error(f"Error analyzing metrics: {str(e)}", exc_info=True)
+        logger.error(f"[METRICS DEBUG] Error analyzing metrics: {str(e)}", exc_info=True)
         return {"value": 50, "risk": 50, "outcome": 50}
