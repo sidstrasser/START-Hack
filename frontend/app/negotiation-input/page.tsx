@@ -21,25 +21,36 @@ export default function NegotiationInput() {
   const [paymentTerms, setPaymentTerms] = useState('');
   const [validityPeriod, setValidityPeriod] = useState('');
   const [goals, setGoals] = useState('');
+  const [hasExtractedData, setHasExtractedData] = useState(false);
 
   useEffect(() => {
     // Load extracted data if available
     const storedDocId = sessionStorage.getItem('documentId');
     const storedData = sessionStorage.getItem('extractedData');
 
-    if (storedDocId && storedData) {
+    if (storedDocId) {
       setDocumentId(storedDocId);
-      try {
-        const data: ExtractedData = JSON.parse(storedData);
-        setSupplier(data.supplier || '');
-        setTotalPrice(data.total_price || '');
-        setDeliveryTime(data.delivery_time || '');
-        setContactPerson(data.contact_person || '');
-        setPaymentTerms(data.payment_terms || '');
-        setValidityPeriod(data.validity_period || '');
-      } catch (e) {
-        console.error('Failed to parse extracted data', e);
+
+      if (storedData) {
+        try {
+          const data: ExtractedData = JSON.parse(storedData);
+          // Auto-fill form with extracted data
+          setSupplier(data.supplier || '');
+          setTotalPrice(data.total_price || '');
+          setDeliveryTime(data.delivery_time || '');
+          setContactPerson(data.contact_person || '');
+          setPaymentTerms(data.payment_terms || '');
+          setValidityPeriod(data.validity_period || '');
+          setHasExtractedData(true);
+        } catch (e) {
+          console.error('Failed to parse extracted data', e);
+        }
       }
+    } else {
+      // No document uploaded - create a placeholder document ID for manual entry
+      const placeholderDocId = `manual-${Date.now()}`;
+      setDocumentId(placeholderDocId);
+      sessionStorage.setItem('documentId', placeholderDocId);
     }
   }, []);
 
@@ -84,6 +95,23 @@ export default function NegotiationInput() {
         <h1 className="text-4xl font-bold mb-8 text-center">Negotiation Details</h1>
 
         {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
+
+        {hasExtractedData && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <p className="text-sm text-green-800 font-medium">
+                Data automatically extracted from your PDF. Please review and edit as needed.
+              </p>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-lg p-8 space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
