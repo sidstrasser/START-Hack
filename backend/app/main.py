@@ -68,8 +68,10 @@ async def health():
 # Import and include API routes
 from app.api.routes import router as api_router
 from app.api.elevenlabs_routes import router as elevenlabs_router
+from app.api.hubspot_routes import router as hubspot_router
 app.include_router(api_router, prefix="/api")
 app.include_router(elevenlabs_router, prefix="/api")
+app.include_router(hubspot_router, prefix="/api")
 
 
 if __name__ == "__main__":

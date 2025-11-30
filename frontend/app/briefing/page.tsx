@@ -74,7 +74,7 @@ export default function Briefing() {
 
   const handleUseInLiveCall = () => {
     // Navigate directly to live call page
-    router.push('/live-call');
+      router.push('/live-call');
   };
 
   if (sseError) {
