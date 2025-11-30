@@ -161,7 +161,8 @@ async def parse_node(state: NegotiationState, config: RunnableConfig) -> Negotia
     parsed_input = ParsedInput(
         supplier_offer_text=state["supplier_offer_pdf"],
         initial_request_text=state["initial_request_pdf"],
-        alternatives=alternatives,
+        alternatives_text=state.get("alternatives_pdf"),  # Store full PDF text for agent analysis
+        alternatives=alternatives,  # Store structured list of suppliers
         form_data=form_data
     )
 
