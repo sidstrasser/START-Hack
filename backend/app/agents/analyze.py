@@ -86,7 +86,7 @@ async def analyze_node(state: NegotiationState, config: RunnableConfig) -> Negot
     prompt = ChatPromptTemplate.from_messages([
         ("system", """You are an expert negotiation strategist creating a comprehensive briefing for procurement negotiations.
 
-Generate a complete negotiation briefing with these 5 sections:
+Generate a complete negotiation briefing with these 4 sections, plus a separate list of action items:
 
 1. SUPPLIER SUMMARY
    - Use the provided research data for company overview, key facts, and recent news
@@ -110,10 +110,11 @@ Generate a complete negotiation briefing with these 5 sections:
    - Recommended Tactics: Provide 3-5 concrete tactical tips
    - Partnership Recommendation: "Strategic Partner" if urgent/high_impact, "Preferred Vendor" if medium_impact, "Transactional" if low_impact
 
-5. ACTION ITEMS
-   - Generate 5-10 prioritized action items
-   - Categories: price, terms, timeline, scope
-   - Priorities: must_have, nice_to_have
+ACTION ITEMS (Separate from briefing):
+   - Generate EXACTLY 5 most important action items
+   - Each item must have: id (1-5) and description
+   - Focus on the highest priority actions the negotiator should take
+   - Be specific and actionable
 
 Be specific and actionable. Use the provided data to create a practical negotiation guide."""),
         ("user", """Create a negotiation briefing using this information:

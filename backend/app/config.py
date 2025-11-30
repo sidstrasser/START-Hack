@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     # ElevenLabs
     elevenlabs_api_key: str = ""
 
+    # Pinecone
+    pinecone_api_key: str
+    pinecone_index_name: str
     # HubSpot
     hubspot_api_key: str
 
