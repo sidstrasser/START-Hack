@@ -25,46 +25,67 @@ briefings_store: Dict[str, dict] = {}
 @router.post("/upload-pdf", response_model=UploadResponse)
 async def upload_pdf(files: List[UploadFile] = File(...)):
     """
-    Upload and parse multiple PDF documents.
+    Upload 1-3 PDF documents and extract form data for pre-filling.
+
+    Expected files (in order):
+    1. Supplier Offer PDF (required)
+    2. Potential Suppliers PDF (optional)
+    3. Additional Context PDF (optional)
+
+    Returns:
+        document_id and auto-extracted form data for pre-filling
     """
     settings = get_settings()
     saved_paths = []
-    
-    # Generate a single document_id representing this "session" or "case"
+
+    # Generate document ID
     document_id = generate_document_id()
 
     try:
+        # Save uploaded files
         for file in files:
             if not file.filename.endswith(".pdf"):
                 continue
-                
-            # Save file
-            # We append a random suffix or index to avoid collisions if filenames are same
+
             safe_filename = f"{document_id}_{file.filename}"
             file_path = os.path.join(settings.upload_dir, safe_filename)
-            
+
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
-            
+
             saved_paths.append(file_path)
 
         if not saved_paths:
-             raise HTTPException(status_code=400, detail="No valid PDF files uploaded")
+            raise HTTPException(status_code=400, detail="No valid PDF files uploaded")
 
-        # Extract data from all PDFs combined
-        extracted_data = await extract_data_from_docs(saved_paths)
+        # Extract raw text from PDFs
+        from app.services.pdf_text_extractor import extract_text_from_pdfs
 
-        # Store document info (using the session ID)
+        texts = extract_text_from_pdfs(saved_paths)
+
+        # Separate PDFs by position
+        supplier_offer_text = texts[0] if len(texts) > 0 else ""
+        alternatives_text = texts[1] if len(texts) > 1 else None
+        additional_context_text = texts[2] if len(texts) > 2 else None
+
+        # Auto-extract form data from supplier offer for pre-filling
+        from app.services.form_extractor import extract_form_data_from_pdf
+
+        extracted_form_data = await extract_form_data_from_pdf(supplier_offer_text)
+
+        # Store PDFs separately
         documents_store[document_id] = {
             "document_id": document_id,
             "filenames": [f.filename for f in files],
             "file_paths": saved_paths,
-            "extracted_data": extracted_data,
+            "supplier_offer": supplier_offer_text,
+            "alternatives": alternatives_text,
+            "additional_context": additional_context_text
         }
 
         return UploadResponse(
             document_id=document_id,
-            extracted_data=extracted_data
+            extracted_data=extracted_form_data
         )
 
     except Exception as e:
@@ -101,6 +122,9 @@ async def generate_briefing(
 
     job_id = str(uuid.uuid4())
 
+    # Get stored documents
+    docs = documents_store[request.document_id]
+
     # Wrapper function to run async task in background
     def run_pipeline_wrapper():
         """Wrapper to run async pipeline in background task."""
@@ -124,7 +148,10 @@ async def generate_briefing(
                 run_mas_pipeline(
                     job_id=job_id,
                     document_id=request.document_id,
-                    additional_context=request.additional_context or {}
+                    supplier_offer_pdf=docs["supplier_offer"],
+                    alternatives_pdf=docs.get("alternatives"),
+                    additional_context_pdf=docs.get("additional_context"),
+                    form_data=request.form_data.model_dump()
                 )
             )
             logger.info(f"[WRAPPER] Pipeline completed for job_id={job_id}")

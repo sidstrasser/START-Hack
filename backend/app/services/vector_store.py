@@ -51,26 +51,26 @@ async def store_briefing_in_vector_db(job_id: str, briefing: Dict[str, Any]) -> 
     # Get namespace for this job (server-derived, not client-provided)
     namespace = get_namespace_for_job(job_id)
 
-    # Create data records from briefing sections
+    # Create data records from NEW briefing sections (5 sections)
     data_records = []
 
-    # Record 1: Executive Summary
-    if "executive_summary" in briefing:
-        text = f"Executive Summary:\n{briefing['executive_summary']}"
+    # Record 1: Supplier Summary
+    if "supplier_summary" in briefing:
+        text = f"Supplier Summary:\n{json.dumps(briefing['supplier_summary'], indent=2)}"
         data_records.append({
-            "id": f"{job_id}_exec_summary",
+            "id": f"{job_id}_supplier_summary",
             "text": text,
-            "section": "executive_summary",
+            "section": "supplier_summary",
             "job_id": job_id
         })
 
-    # Record 2: Supplier Overview
-    if "supplier_overview" in briefing:
-        text = f"Supplier Overview:\n{json.dumps(briefing['supplier_overview'], indent=2)}"
+    # Record 2: Market Analysis
+    if "market_analysis" in briefing:
+        text = f"Market Analysis:\n{json.dumps(briefing['market_analysis'], indent=2)}"
         data_records.append({
-            "id": f"{job_id}_supplier",
+            "id": f"{job_id}_market_analysis",
             "text": text,
-            "section": "supplier_overview",
+            "section": "market_analysis",
             "job_id": job_id
         })
 
@@ -78,59 +78,29 @@ async def store_briefing_in_vector_db(job_id: str, briefing: Dict[str, Any]) -> 
     if "offer_analysis" in briefing:
         text = f"Offer Analysis:\n{json.dumps(briefing['offer_analysis'], indent=2)}"
         data_records.append({
-            "id": f"{job_id}_offer",
+            "id": f"{job_id}_offer_analysis",
             "text": text,
             "section": "offer_analysis",
             "job_id": job_id
         })
 
-    # Record 4: Negotiation Strategy
-    if "negotiation_strategy" in briefing:
-        text = f"Negotiation Strategy:\n{json.dumps(briefing['negotiation_strategy'], indent=2)}"
+    # Record 4: Outcome Assessment
+    if "outcome_assessment" in briefing:
+        text = f"Outcome Assessment:\n{json.dumps(briefing['outcome_assessment'], indent=2)}"
         data_records.append({
-            "id": f"{job_id}_strategy",
+            "id": f"{job_id}_outcome_assessment",
             "text": text,
-            "section": "negotiation_strategy",
+            "section": "outcome_assessment",
             "job_id": job_id
         })
 
-    # Record 5: Key Talking Points
-    if "key_talking_points" in briefing:
-        text = f"Key Talking Points:\n{json.dumps(briefing['key_talking_points'], indent=2)}"
+    # Record 5: Action Items
+    if "action_items" in briefing:
+        text = f"Action Items:\n{json.dumps(briefing['action_items'], indent=2)}"
         data_records.append({
-            "id": f"{job_id}_talking_points",
+            "id": f"{job_id}_action_items",
             "text": text,
-            "section": "talking_points",
-            "job_id": job_id
-        })
-
-    # Record 6: Leverage Points
-    if "leverage_points" in briefing:
-        text = f"Leverage Points:\n{json.dumps(briefing['leverage_points'], indent=2)}"
-        data_records.append({
-            "id": f"{job_id}_leverage",
-            "text": text,
-            "section": "leverage_points",
-            "job_id": job_id
-        })
-
-    # Record 7: Potential Objections
-    if "potential_objections" in briefing:
-        text = f"Potential Objections:\n{json.dumps(briefing['potential_objections'], indent=2)}"
-        data_records.append({
-            "id": f"{job_id}_objections",
-            "text": text,
-            "section": "objections",
-            "job_id": job_id
-        })
-
-    # Record 8: Risk Assessment
-    if "risk_assessment" in briefing:
-        text = f"Risk Assessment:\n{json.dumps(briefing['risk_assessment'], indent=2)}"
-        data_records.append({
-            "id": f"{job_id}_risks",
-            "text": text,
-            "section": "risk_assessment",
+            "section": "action_items",
             "job_id": job_id
         })
 
