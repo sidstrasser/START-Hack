@@ -14,7 +14,7 @@ export default function ActionButtonsGroup({
   onOutcomeClick,
 }: ActionButtonsGroupProps) {
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2">
+    <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2">
       <ActionButton
         icon={
           <svg
@@ -64,4 +64,3 @@ export default function ActionButtonsGroup({
     </div>
   );
 }
-

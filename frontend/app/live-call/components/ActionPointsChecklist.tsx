@@ -24,7 +24,7 @@ export default function ActionPointsChecklist({
 }: ActionPointsChecklistProps) {
   const [animatingId, setAnimatingId] = useState<number | null>(null);
   const completedCount = actionPoints.filter(p => p.completed).length;
-  const progress = (completedCount / actionPoints.length) * 100;
+  const progress = actionPoints.length > 0 ? (completedCount / actionPoints.length) * 100 : 0;
 
   const handleToggle = (id: number) => {
     const point = actionPoints.find(p => p.id === id);
@@ -36,22 +36,22 @@ export default function ActionPointsChecklist({
   };
 
   return (
-    <div className="mx-3 my-2 rounded-lg bg-gradient-to-br from-emerald-50 via-white to-teal-50 border border-emerald-200/60 shadow-sm overflow-hidden">
+    <div className="mx-3 my-3 rounded-ds-lg bg-white/5 backdrop-blur-sm border border-white/10 overflow-hidden">
       {/* Header */}
       <button
         onClick={onToggleShow}
-        className="w-full px-3 py-2 flex items-center justify-between hover:bg-emerald-50/50 transition-colors"
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors"
       >
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-3">
           <div className="relative">
             {/* Circular progress ring */}
-            <svg className="w-8 h-8 -rotate-90" viewBox="0 0 36 36">
+            <svg className="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
               <circle
                 cx="18"
                 cy="18"
                 r="14"
                 fill="none"
-                stroke="#e5e7eb"
+                stroke="rgba(255,255,255,0.1)"
                 strokeWidth="3"
               />
               <circle
@@ -59,31 +59,31 @@ export default function ActionPointsChecklist({
                 cy="18"
                 r="14"
                 fill="none"
-                stroke="#10b981"
+                stroke="#7B5BF1"
                 strokeWidth="3"
                 strokeLinecap="round"
                 strokeDasharray={`${progress * 0.88} 88`}
                 className="transition-all duration-500 ease-out"
               />
             </svg>
-            {/* Center icon/count */}
+            {/* Center count */}
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-[10px] font-bold text-emerald-600">
+              <span className="text-[10px] font-bold text-ds-accent-2">
                 {completedCount}/{actionPoints.length}
               </span>
             </div>
           </div>
           <div>
-            <h3 className="text-xs font-bold text-gray-900">Action Points</h3>
-            <p className="text-[10px] text-emerald-600 font-medium">
-              {completedCount === actionPoints.length 
-                ? "All complete! 🎉" 
+            <h3 className="text-sm font-semibold text-white">Action Points</h3>
+            <p className="text-[11px] text-white/50">
+              {completedCount === actionPoints.length && actionPoints.length > 0
+                ? "All complete!" 
                 : `${actionPoints.length - completedCount} remaining`}
             </p>
           </div>
         </div>
-        <div className={`p-1 rounded-full bg-emerald-100 transition-transform duration-200 ${showActionPoints ? 'rotate-180' : ''}`}>
-          <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className={`p-1.5 rounded-full bg-white/10 transition-transform duration-200 ${showActionPoints ? 'rotate-180' : ''}`}>
+          <svg className="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </div>
@@ -91,9 +91,9 @@ export default function ActionPointsChecklist({
       
       {/* Items list */}
       <div className={`transition-all duration-300 ease-in-out ${
-        showActionPoints ? 'max-h-[500px] overflow-y-auto' : 'max-h-0 overflow-hidden'
+        showActionPoints ? 'max-h-[400px] overflow-y-auto' : 'max-h-0 overflow-hidden'
       }`}>
-        <div className="px-3 pb-2 space-y-1.5">
+        <div className="px-3 pb-3 space-y-2">
           {actionPoints.map((point, index) => {
             const isAnimating = animatingId === point.id;
             
@@ -102,12 +102,12 @@ export default function ActionPointsChecklist({
                 key={point.id}
                 onClick={() => handleToggle(point.id)}
                 className={`
-                  w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-300 text-left group relative
+                  w-full flex items-start gap-3 px-3 py-2.5 rounded-ds-md transition-all duration-300 text-left group relative
                   ${point.completed 
-                    ? 'bg-emerald-100/80' 
-                    : 'bg-white shadow-sm hover:shadow-md border border-gray-100'
+                    ? 'bg-ds-accent-2/10 border border-ds-accent-2/20' 
+                    : 'bg-white/5 border border-white/10 hover:border-white/20 hover:bg-white/[0.07]'
                   }
-                  ${isAnimating ? 'scale-[1.02] shadow-lg shadow-emerald-200/50' : ''}
+                  ${isAnimating ? 'scale-[1.02] shadow-lg shadow-ds-accent-2/20' : ''}
                 `}
               >
                 {/* Step number / Checkbox */}
@@ -115,8 +115,8 @@ export default function ActionPointsChecklist({
                   relative flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center 
                   transition-all duration-300 ease-out font-semibold text-[10px]
                   ${point.completed 
-                    ? 'bg-emerald-500 text-white' 
-                    : 'bg-gray-100 text-gray-500 group-hover:bg-emerald-100 group-hover:text-emerald-600'
+                    ? 'bg-ds-accent-2 text-white' 
+                    : 'bg-white/10 text-white/50 group-hover:bg-ds-accent-2/20 group-hover:text-ds-accent-2'
                   }
                   ${isAnimating ? 'animate-[checkbox-pop_0.4s_ease-out]' : ''}
                 `}>
@@ -141,20 +141,20 @@ export default function ActionPointsChecklist({
                   {/* Success particles */}
                   {isAnimating && (
                     <>
-                      <span className="absolute w-1.5 h-1.5 bg-emerald-400 rounded-full animate-[particle-1_0.5s_ease-out_forwards]" />
-                      <span className="absolute w-1.5 h-1.5 bg-emerald-300 rounded-full animate-[particle-2_0.5s_ease-out_forwards]" />
-                      <span className="absolute w-1.5 h-1.5 bg-emerald-500 rounded-full animate-[particle-3_0.5s_ease-out_forwards]" />
-                      <span className="absolute w-1.5 h-1.5 bg-yellow-400 rounded-full animate-[particle-4_0.5s_ease-out_forwards]" />
+                      <span className="absolute w-1.5 h-1.5 bg-ds-accent-2 rounded-full animate-[particle-1_0.5s_ease-out_forwards]" />
+                      <span className="absolute w-1.5 h-1.5 bg-ds-accent-2/70 rounded-full animate-[particle-2_0.5s_ease-out_forwards]" />
+                      <span className="absolute w-1.5 h-1.5 bg-ds-accent-1 rounded-full animate-[particle-3_0.5s_ease-out_forwards]" />
+                      <span className="absolute w-1.5 h-1.5 bg-white rounded-full animate-[particle-4_0.5s_ease-out_forwards]" />
                     </>
                   )}
                 </div>
                 
                 {/* Text */}
                 <span className={`
-                  flex-1 text-xs transition-all duration-300 leading-snug
+                  flex-1 text-xs transition-all duration-300 leading-snug pt-0.5
                   ${point.completed 
-                    ? 'text-emerald-700 line-through decoration-emerald-400' 
-                    : 'text-gray-700'
+                    ? 'text-ds-accent-2 line-through decoration-ds-accent-2/50' 
+                    : 'text-white/80'
                   }
                 `}>
                   {point.text}

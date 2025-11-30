@@ -681,7 +681,7 @@ export default function LiveCall() {
   }, []);
 
   return (
-    <main className="h-screen flex overflow-hidden">
+    <main className="h-screen flex overflow-hidden bg-[#0F1A3D]">
       {/* Left side - Video (2/3 of screen) */}
       <VideoSection
         videoRef={videoRef}
@@ -701,9 +701,13 @@ export default function LiveCall() {
       />
 
       {/* Right side - Sidebar (1/3 of screen) */}
-      <div className="w-1/3 bg-gray-50 flex flex-col border-l border-gray-200 relative overflow-hidden">
+      <div className="w-1/3 bg-[#0F1A3D]/95 backdrop-blur-xl flex flex-col border-l border-white/10 relative overflow-hidden">
+        {/* Decorative gradient blurs */}
+        <div className="absolute -top-20 -right-20 w-60 h-60 bg-ds-accent-1/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-20 -left-10 w-40 h-40 bg-ds-accent-2/15 rounded-full blur-2xl pointer-events-none" />
+        
         {/* Transcripts View */}
-        <div className={`absolute inset-0 transition-transform duration-300 ease-in-out ${
+        <div className={`absolute inset-0 z-10 transition-transform duration-300 ease-in-out ${
           showTranscripts ? 'translate-x-0' : 'translate-x-full'
         }`}>
           <TranscriptSidebar 
@@ -716,7 +720,7 @@ export default function LiveCall() {
         <div className={`absolute inset-0 pb-16 transition-transform duration-300 ease-in-out ${
           showTranscripts ? '-translate-x-full' : 'translate-x-0'
         }`}>
-          <div className="h-full flex flex-col overflow-hidden">
+          <div className="h-full flex flex-col overflow-hidden relative z-10">
             {/* Fixed header sections */}
             <div className="flex-shrink-0">
               <MetricsPanel 
@@ -729,7 +733,7 @@ export default function LiveCall() {
                 showActionPoints={showActionPoints}
                 onToggleShow={() => setShowActionPoints(!showActionPoints)}
                 onTogglePoint={toggleActionPoint}
-                />
+              />
             </div>
 
             {/* Scrollable insights area */}
@@ -766,12 +770,12 @@ export default function LiveCall() {
 
       {/* Emotion model loading indicator (dev only) */}
       {isDev && isEmotionModelLoading && (
-        <div className="fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg text-sm shadow-lg z-50">
+        <div className="fixed bottom-4 right-4 bg-ds-accent-2/90 backdrop-blur-xl text-white px-4 py-2 rounded-ds-lg text-sm shadow-lg z-50 border border-ds-accent-2/50">
           Loading emotion model...
         </div>
       )}
       {isDev && emotionModelError && (
-        <div className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg text-sm shadow-lg z-50">
+        <div className="fixed bottom-4 right-4 bg-red-500/90 backdrop-blur-xl text-white px-4 py-2 rounded-ds-lg text-sm shadow-lg z-50 border border-red-500/50">
           Emotion model error: {emotionModelError}
         </div>
       )}

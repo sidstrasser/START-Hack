@@ -50,13 +50,13 @@ export default function Toast({ message, type = "success", onClose, duration = 4
     >
       <div
         className={`
-          flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-2xl backdrop-blur-md
+          flex items-center gap-3 px-5 py-3.5 rounded-ds-lg shadow-2xl backdrop-blur-xl
           border
           ${type === "success"
-            ? "bg-gradient-to-r from-emerald-500 to-emerald-600 border-emerald-400/30 text-white"
+            ? "bg-emerald-500/90 border-emerald-400/30 text-white"
             : type === "warning"
-            ? "bg-gradient-to-r from-amber-500 to-orange-600 border-orange-400/30 text-white"
-            : "bg-gradient-to-r from-blue-500 to-blue-600 border-blue-400/30 text-white"
+            ? "bg-amber-500/90 border-amber-400/30 text-white"
+            : "bg-ds-accent-2/90 border-ds-accent-2/30 text-white"
           }
         `}
       >
@@ -105,7 +105,7 @@ export default function Toast({ message, type = "success", onClose, duration = 4
         <span className="text-sm font-semibold tracking-wide">{message}</span>
         <button
           onClick={handleClose}
-          className="flex-shrink-0 ml-1 p-1 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-all duration-200"
+          className="flex-shrink-0 ml-1 p-1 rounded-full text-white/60 hover:text-white hover:bg-white/20 transition-all duration-200"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

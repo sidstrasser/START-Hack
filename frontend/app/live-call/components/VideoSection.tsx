@@ -49,8 +49,8 @@ export default function VideoSection({
 }: VideoSectionProps) {
 
   return (
-    <div className="w-2/3 bg-black flex items-center justify-center relative">
-      <div className="w-full h-full bg-gray-900 flex items-center justify-center relative">
+    <div className="w-2/3 bg-[#0F1A3D] flex items-center justify-center relative p-4">
+      <div className="w-full h-full bg-[#0a1029] rounded-ds-xl overflow-hidden flex items-center justify-center relative border border-white/10 shadow-2xl">
         {/* Video element */}
         <video
           ref={videoRef}
@@ -73,14 +73,14 @@ export default function VideoSection({
               width={faceBox.width}
               height={faceBox.height}
               fill="none"
-              stroke="#22c55e"
+              stroke="#7B5BF1"
               strokeWidth="3"
               rx="8"
             />
             <text
               x={faceBox.x + 4}
               y={faceBox.y - 8}
-              fill="#22c55e"
+              fill="#7B5BF1"
               fontSize="14"
               fontWeight="bold"
             >
@@ -92,7 +92,11 @@ export default function VideoSection({
         {/* Face Box Toggle Button (bottom-left) */}
         <button
           onClick={onToggleFaceBox}
-          className="absolute bottom-4 left-4 z-10 px-3 py-1.5 bg-black/50 hover:bg-black/70 text-white text-xs rounded-full backdrop-blur-sm transition-all flex items-center gap-1.5"
+          className={`absolute bottom-4 left-4 z-10 px-3 py-2 text-xs font-medium rounded-ds-md backdrop-blur-xl transition-all flex items-center gap-2 ${
+            showFaceBox 
+              ? 'bg-ds-accent-2/30 text-white border border-ds-accent-2/50' 
+              : 'bg-white/10 text-white/70 hover:text-white border border-white/20 hover:border-white/40'
+          }`}
           title={showFaceBox ? "Hide face box" : "Show face box"}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -108,7 +112,11 @@ export default function VideoSection({
           {/* Toggle button */}
           <button
             onClick={onToggleEmotions}
-            className="mb-2 px-3 py-1.5 bg-black/50 hover:bg-black/70 text-white text-xs rounded-full backdrop-blur-sm transition-all flex items-center gap-1.5"
+            className={`mb-2 px-3 py-2 text-xs font-medium rounded-ds-md backdrop-blur-xl transition-all flex items-center gap-2 ${
+              showEmotions 
+                ? 'bg-ds-accent-2/30 text-white border border-ds-accent-2/50' 
+                : 'bg-white/10 text-white/70 hover:text-white border border-white/20 hover:border-white/40'
+            }`}
             title={showEmotions ? "Hide emotions" : "Show emotions"}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -124,9 +132,9 @@ export default function VideoSection({
 
           {/* Emotion display */}
           {showEmotions && topEmotions && topEmotions.length > 0 && (
-            <div className="bg-black/60 backdrop-blur-sm rounded-lg px-4 py-3 min-w-[140px]">
+            <div className="bg-[#0F1A3D]/80 backdrop-blur-xl rounded-ds-lg px-4 py-3 min-w-[160px] border border-white/10">
               {topEmotions[0]?.emotion === 'No Face' ? (
-                <div className="text-gray-400 text-sm flex items-center gap-2">
+                <div className="text-white/50 text-sm flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
@@ -134,22 +142,22 @@ export default function VideoSection({
                 </div>
               ) : (
                 <>
-                  <div className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">Detected Emotions</div>
+                  <div className="text-[10px] uppercase tracking-wider text-white/40 mb-2 font-medium">Detected Emotions</div>
                   {topEmotions.map((item, index) => (
-                    <div key={item.emotion} className="flex items-center justify-between gap-3 mb-1.5 last:mb-0">
-                      <span className={`text-sm font-medium ${index === 0 ? 'text-white' : 'text-gray-300'}`}>
+                    <div key={item.emotion} className="flex items-center justify-between gap-3 mb-2 last:mb-0">
+                      <span className={`text-sm font-medium ${index === 0 ? 'text-white' : 'text-white/60'}`}>
                         {item.emotion}
                       </span>
                       <div className="flex items-center gap-2">
-                        <div className="w-16 h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                        <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
                           <div 
                             className={`h-full rounded-full transition-all duration-300 ${
-                              index === 0 ? 'bg-blue-500' : 'bg-gray-500'
+                              index === 0 ? 'bg-ds-accent-2' : 'bg-white/30'
                             }`}
                             style={{ width: `${Math.min(item.confidence * 100, 100)}%` }}
                           />
                         </div>
-                        <span className={`text-xs tabular-nums ${index === 0 ? 'text-blue-400' : 'text-gray-500'}`}>
+                        <span className={`text-xs tabular-nums ${index === 0 ? 'text-ds-accent-2' : 'text-white/40'}`}>
                           {(item.confidence * 100).toFixed(0)}%
                         </span>
                       </div>
@@ -169,8 +177,8 @@ export default function VideoSection({
               disabled={isConnecting}
               className={`relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 shadow-lg ${
                 isRecording
-                  ? "bg-red-600 hover:bg-red-700 animate-pulse"
-                  : "bg-gray-700 hover:bg-gray-600"
+                  ? "bg-red-500 hover:bg-red-600 animate-pulse"
+                  : "bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/20"
               } ${isConnecting ? "opacity-50 cursor-not-allowed" : ""}`}
               title={
                 isRecording
@@ -201,11 +209,11 @@ export default function VideoSection({
               )}
               {/* Recording indicator dot */}
               {isRecording && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-ping" />
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-400 rounded-full border-2 border-white animate-ping" />
               )}
             </button>
             {/* DEV badge */}
-            <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-xs text-gray-400 font-mono bg-gray-800 px-2 py-0.5 rounded">
+            <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-[10px] text-white/50 font-mono bg-white/10 backdrop-blur-sm px-2 py-0.5 rounded-full">
               DEV
             </div>
           </div>
@@ -215,7 +223,7 @@ export default function VideoSection({
         {isDev && (
           <button
             onClick={onEndCall}
-            className="absolute bottom-4 right-4 z-10 w-12 h-12 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center transition-all duration-200 shadow-lg hover:scale-110"
+            className="absolute bottom-4 right-4 z-10 w-12 h-12 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all duration-200 shadow-lg hover:scale-110"
             title="End Call"
           >
             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
@@ -226,10 +234,10 @@ export default function VideoSection({
 
         {/* Loading overlay */}
         {isLoading && (
-          <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
-            <div className="text-center text-gray-400">
+          <div className="absolute inset-0 bg-[#0a1029] flex items-center justify-center">
+            <div className="text-center text-white/50">
               <svg
-                className="w-24 h-24 mx-auto mb-4 animate-pulse"
+                className="w-24 h-24 mx-auto mb-4 animate-pulse text-ds-accent-2/50"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -241,14 +249,14 @@ export default function VideoSection({
                   d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
                 />
               </svg>
-              <p className="text-lg">Accessing camera...</p>
+              <p className="text-lg font-medium text-white/70">Accessing camera...</p>
             </div>
           </div>
         )}
 
         {/* Error overlay */}
         {error && (
-          <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
+          <div className="absolute inset-0 bg-[#0a1029] flex items-center justify-center">
             <div className="text-center text-red-400 max-w-md px-4">
               <svg
                 className="w-24 h-24 mx-auto mb-4"
@@ -263,9 +271,9 @@ export default function VideoSection({
                   d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
                 />
               </svg>
-              <p className="text-lg mb-2">Camera Error</p>
-              <p className="text-sm">{error}</p>
-              <p className="text-xs mt-4 text-gray-500">
+              <p className="text-lg font-medium mb-2">Camera Error</p>
+              <p className="text-sm text-red-300/80">{error}</p>
+              <p className="text-xs mt-4 text-white/40">
                 Please allow camera access and refresh the page.
               </p>
             </div>
@@ -275,4 +283,3 @@ export default function VideoSection({
     </div>
   );
 }
-

@@ -11,21 +11,21 @@ interface ActionButtonProps {
 }
 
 const colorClasses = {
-  blue: "bg-blue-600 hover:bg-blue-700",
-  purple: "bg-purple-600 hover:bg-purple-700",
-  green: "bg-green-600 hover:bg-green-700",
-  red: "bg-red-600 hover:bg-red-700",
-  yellow: "bg-yellow-600 hover:bg-yellow-700",
-  gray: "bg-gray-600 hover:bg-gray-700",
+  blue: "bg-blue-500/20 hover:bg-blue-500/30 border-blue-500/30 text-blue-400",
+  purple: "bg-ds-accent-2/20 hover:bg-ds-accent-2/30 border-ds-accent-2/30 text-ds-accent-2",
+  green: "bg-green-500/20 hover:bg-green-500/30 border-green-500/30 text-green-400",
+  red: "bg-red-500/20 hover:bg-red-500/30 border-red-500/30 text-red-400",
+  yellow: "bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/30 text-amber-400",
+  gray: "bg-white/10 hover:bg-white/20 border-white/20 text-white/70",
 };
 
 const disabledColorClasses = {
-  blue: "bg-blue-600/40",
-  purple: "bg-purple-600/40",
-  green: "bg-green-600/40",
-  red: "bg-red-600/40",
-  yellow: "bg-yellow-600/40",
-  gray: "bg-gray-600/40",
+  blue: "bg-blue-500/10 border-blue-500/10 text-blue-400/40",
+  purple: "bg-ds-accent-2/10 border-ds-accent-2/10 text-ds-accent-2/40",
+  green: "bg-green-500/10 border-green-500/10 text-green-400/40",
+  red: "bg-red-500/10 border-red-500/10 text-red-400/40",
+  yellow: "bg-amber-500/10 border-amber-500/10 text-amber-400/40",
+  gray: "bg-white/5 border-white/10 text-white/30",
 };
 
 const sizeClasses = {
@@ -58,8 +58,8 @@ export default function ActionButton({
       <button
         onClick={onClick}
         disabled={disabled}
-        className={`${sizeClass} rounded-full ${bgColor} text-white flex items-center justify-center transition-all duration-200 shadow-md ${
-          disabled ? "cursor-not-allowed opacity-60" : "hover:shadow-lg hover:scale-105"
+        className={`${sizeClass} rounded-full ${bgColor} border backdrop-blur-xl flex items-center justify-center transition-all duration-200 ${
+          disabled ? "cursor-not-allowed" : "hover:scale-105"
         }`}
       >
         {isLoading ? (
@@ -87,13 +87,12 @@ export default function ActionButton({
         )}
       </button>
       {/* Tooltip */}
-      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
-        {isLoading ? "Loading..." : tooltip}
+      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 bg-[#0F1A3D] border border-white/20 text-white text-xs rounded-ds-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap backdrop-blur-xl">
+        {isLoading ? "Analyzing..." : tooltip}
         <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
-          <div className="border-4 border-transparent border-t-gray-900"></div>
+          <div className="border-4 border-transparent border-t-[#0F1A3D]"></div>
         </div>
       </div>
     </div>
   );
 }
-
