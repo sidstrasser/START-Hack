@@ -376,15 +376,15 @@ export default function Summary() {
           <div className="absolute -top-40 -right-40 w-[600px] h-[600px] bg-ds-accent-1/20 rounded-full blur-3xl" />
         </div>
         <div className="relative z-10 flex flex-col items-center justify-center min-h-screen gap-4">
-          <div className="text-center">
+        <div className="text-center">
             <h1 className="text-2xl font-bold text-white mb-2">No Call Data Found</h1>
             <p className="text-white/60 mb-6">Start a call first to see the summary.</p>
-            <button
-              onClick={() => router.push('/briefing')}
+          <button
+            onClick={() => router.push('/briefing')}
               className="px-6 py-3 bg-white text-[#0F1A3D] rounded-ds-xl font-medium hover:-translate-y-0.5 transition-transform"
-            >
-              Start New Call
-            </button>
+          >
+            Start New Call
+          </button>
           </div>
         </div>
       </main>
@@ -418,13 +418,13 @@ export default function Summary() {
                   unoptimized
                 />
               </Link>
-              <div>
+            <div>
                 <h1 className="text-2xl font-bold text-white">
-                  Call Summary
-                </h1>
+                Call Summary
+              </h1>
                 <p className="text-sm text-white/50 mt-0.5">
-                  Duration: {formatDuration(callData.callDuration)} • {new Date(callData.callStartTime).toLocaleString()}
-                </p>
+                Duration: {formatDuration(callData.callDuration)} • {new Date(callData.callStartTime).toLocaleString()}
+              </p>
               </div>
             </div>
             

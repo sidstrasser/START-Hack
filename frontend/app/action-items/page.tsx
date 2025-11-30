@@ -207,7 +207,7 @@ export default function ActionItems() {
   if (loading) {
     return (
       <main className="min-h-screen bg-[#0F1A3D] flex items-center justify-center">
-        <LoadingSpinner />
+          <LoadingSpinner />
       </main>
     );
   }
@@ -257,7 +257,7 @@ export default function ActionItems() {
         <div className="absolute bottom-0 -left-40 w-[500px] h-[500px] bg-ds-accent-2/10 rounded-full blur-3xl" />
       </div>
 
-      {/* Header */}
+        {/* Header */}
       <header className="relative z-10 p-6">
         <Link href="/briefing" className="inline-flex items-center gap-3 group">
           <Image src="/icon-logo.png" alt="Accordia" width={40} height={40} className="h-10 w-auto object-contain" unoptimized />
@@ -270,11 +270,11 @@ export default function ActionItems() {
         <div className="max-w-4xl mx-auto mb-10">
           <div className="text-center mb-8">
             <h1 className="text-4xl md:text-5xl font-bold text-white mb-3">
-              Select Action Items
-            </h1>
+            Select Action Items
+          </h1>
             <p className="text-white/60 text-lg">
               Choose up to 5 items to track during your negotiation
-            </p>
+          </p>
           </div>
 
           {/* Selection Counter */}
@@ -298,45 +298,45 @@ export default function ActionItems() {
         <div className="max-w-4xl mx-auto space-y-6 mb-10">
           {Object.entries(groupedItems).map(([category, items]) => (
             <div key={category} className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-ds-xl overflow-hidden">
-              {/* Category Header */}
+                {/* Category Header */}
               <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
                 <h2 className="font-semibold text-white">{categoryLabels[category]}</h2>
                 <span className="text-white/40 text-sm">{items.length} items</span>
-              </div>
+                </div>
 
               {/* Items */}
               <div className="p-4 space-y-3">
                 {items.map((item) => {
-                  const isDisabled = !item.selected && selectedCount >= 5;
+                      const isDisabled = !item.selected && selectedCount >= 5;
 
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => !isDisabled && toggleSelection(item.id)}
-                      className={`
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => !isDisabled && toggleSelection(item.id)}
+                          className={`
                         relative p-4 rounded-ds-lg border transition-all cursor-pointer
-                        ${item.selected 
+                            ${item.selected 
                           ? 'bg-ds-accent-2/10 border-ds-accent-2/50' 
                           : 'bg-white/5 border-white/10 hover:border-white/20'
-                        }
+                            }
                         ${isDisabled ? 'opacity-40 cursor-not-allowed' : ''}
-                      `}
-                    >
+                          `}
+                        >
                       <div className="flex items-start gap-4">
                         {/* Checkbox */}
-                        <div className={`
+                          <div className={`
                           w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all
-                          ${item.selected 
+                            ${item.selected 
                             ? 'bg-ds-accent-2 border-ds-accent-2' 
                             : 'border-white/30'
-                          }
-                        `}>
-                          {item.selected && (
+                            }
+                          `}>
+                            {item.selected && (
                             <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </div>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
 
                         {/* Content */}
                         <div className="flex-1 min-w-0">
@@ -365,10 +365,10 @@ export default function ActionItems() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                           </svg>
                         </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                </div>
+              </div>
+            );
+          })}
               </div>
             </div>
           ))}
@@ -410,7 +410,7 @@ export default function ActionItems() {
               <p className="text-sm text-white/50">
                 {categoryLabels[editingItem.category]}
               </p>
-            </div>
+        </div>
             <textarea
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
@@ -437,8 +437,8 @@ export default function ActionItems() {
               </button>
             </div>
           </div>
-        </div>
-      )}
+          </div>
+        )}
     </main>
   );
 }

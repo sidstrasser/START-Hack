@@ -56,8 +56,8 @@ export default function Home() {
                 </Link>
               ))}
             </nav>
-          </div>
-        </div>
+                </div>
+              </div>
 
         {/* Bottom Actions */}
         <div className="px-4 pb-4">
@@ -75,22 +75,22 @@ export default function Home() {
               </svg>
               Support
             </button>
-          </div>
-        </div>
+                </div>
+              </div>
 
         {/* User Profile */}
         <div className="p-4 border-t border-ds-accent-1/10">
           <div className="flex items-center gap-3 px-2">
             <div className="w-10 h-10 rounded-full bg-gradient-accent flex items-center justify-center text-white font-semibold text-sm shadow-ds-accent">
               {currentUser.name.split(' ').map(n => n[0]).join('')}
-            </div>
+                </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-ds-text truncate">
                 {currentUser.name}
               </p>
               <p className="text-xs text-ds-text-light truncate">
                 {currentUser.email}
-              </p>
+                </p>
             </div>
             <button className="p-1.5 text-ds-text-light hover:text-ds-text transition-colors">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

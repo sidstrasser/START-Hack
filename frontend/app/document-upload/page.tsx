@@ -68,16 +68,16 @@ function FileUploadCard({
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
             <h3 className="text-lg font-semibold text-white">{title}</h3>
-            <span
+        <span
               className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                required
+            required
                   ? "bg-ds-accent-2/30 text-ds-accent-2"
                   : "bg-white/10 text-white/50"
-              }`}
-            >
-              {required ? "Required" : "Optional"}
-            </span>
-          </div>
+          }`}
+        >
+          {required ? "Required" : "Optional"}
+        </span>
+      </div>
           <p className="text-sm text-white/60">{description}</p>
         </div>
       </div>
@@ -109,7 +109,7 @@ function FileUploadCard({
             <div className="flex items-center justify-center gap-2 text-green-400">
               <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+                </svg>
             </div>
             <p className="font-medium text-white truncate px-2">{file.name}</p>
             <div className="flex items-center justify-center gap-4">
@@ -142,12 +142,12 @@ function FileUploadCard({
                 d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
               />
             </svg>
-            <label
-              htmlFor={id}
+              <label
+                htmlFor={id}
               className="cursor-pointer text-white font-medium hover:text-ds-accent-2 transition-colors"
-            >
+              >
               Upload PDF
-            </label>
+              </label>
             <p className="text-white/40 text-sm mt-1">or drag and drop</p>
           </div>
         )}
@@ -228,7 +228,7 @@ export default function DocumentUpload() {
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
             Upload Your Documents
-          </h1>
+        </h1>
           <p className="text-white/60 text-lg max-w-2xl mx-auto">
             Provide your negotiation documents for AI-powered analysis and strategic briefing generation.
           </p>
@@ -255,42 +255,42 @@ export default function DocumentUpload() {
         <div className="flex flex-col lg:flex-row gap-6 max-w-6xl mx-auto mb-12">
           {/* Supplier Offer */}
           <FileUploadCard
-            id="supplier-offer-upload"
-            title="Supplier Offer"
+          id="supplier-offer-upload"
+          title="Supplier Offer"
             description="The supplier's proposal with pricing details"
-            required={true}
-            file={supplierOfferFile}
-            onFileChange={setSupplierOfferFile}
+          required={true}
+          file={supplierOfferFile}
+          onFileChange={setSupplierOfferFile}
             icon={
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             }
-          />
+        />
 
           {/* Initial Request */}
           <FileUploadCard
-            id="initial-request-upload"
-            title="Initial Request"
+          id="initial-request-upload"
+          title="Initial Request"
             description="Your company's original requirements document"
-            required={true}
-            file={initialRequestFile}
-            onFileChange={setInitialRequestFile}
+          required={true}
+          file={initialRequestFile}
+          onFileChange={setInitialRequestFile}
             icon={
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
               </svg>
             }
-          />
+        />
 
           {/* Alternative Suppliers */}
           <FileUploadCard
-            id="alternatives-upload"
+          id="alternatives-upload"
             title="Alternatives"
             description="List of potential alternative suppliers"
-            required={false}
-            file={alternativesFile}
-            onFileChange={setAlternativesFile}
+          required={false}
+          file={alternativesFile}
+          onFileChange={setAlternativesFile}
             icon={
               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />

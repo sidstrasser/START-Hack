@@ -42,12 +42,22 @@ export function useParallelAgents(events: ProgressEvent[]) {
 
       // Update agent status if it's one of our parallel agents
       if (agentNames.includes(agentName)) {
+        // Use agentProgress if available, otherwise use progress field
+        const newProgress = event.agentProgress !== undefined 
+          ? event.agentProgress 
+          : event.progress !== undefined 
+            ? event.progress 
+            : statuses[agentName].progress;
+        
+        // Set progress to 1.0 if completed
+        const finalProgress = event.status === "completed" ? 1.0 : newProgress;
+        
         statuses[agentName] = {
           name: agentName,
           status: event.status === "keepalive" ? statuses[agentName].status : event.status,
           message: event.message,
           detail: event.detail || "",
-          progress: event.agentProgress !== undefined ? event.agentProgress : statuses[agentName].progress
+          progress: finalProgress
         };
       }
     });

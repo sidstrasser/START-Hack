@@ -1,24 +1,24 @@
 'use client';
 
-// Agent configurations
+// Agent configurations - keys match backend agent names
 const AGENT_CONFIG = {
-  offer: {
+  offer_analysis: {
     name: 'Offer Analyst',
     description: 'Analyzing offer details and pricing structure',
   },
-  supplier: {
+  supplier_summary: {
     name: 'Supplier Scout',
     description: 'Researching supplier background and reputation',
   },
-  market: {
+  market_analysis: {
     name: 'Market Analyst',
     description: 'Evaluating market conditions and alternatives',
   },
-  outcome: {
+  outcome_assessment: {
     name: 'Strategy Advisor',
     description: 'Predicting outcomes and recommending tactics',
   },
-  analyze: {
+  action_items: {
     name: 'Action Planner',
     description: 'Generating prioritized action items',
   },
@@ -143,9 +143,9 @@ export default function AgentOrchestration({ overallProgress, getAgentStatus }: 
           </div>
           <div className="flex-1">
             <AgentCard 
-              agentKey="offer"
-              {...getAgentStatus('offer')}
-              isActive={getAgentStatus('offer').status === 'running'}
+              agentKey="offer_analysis"
+              {...getAgentStatus('offer_analysis')}
+              isActive={getAgentStatus('offer_analysis').status === 'running'}
             />
           </div>
         </div>
@@ -158,9 +158,9 @@ export default function AgentOrchestration({ overallProgress, getAgentStatus }: 
           </div>
           <div className="flex-1">
             <AgentCard 
-              agentKey="supplier"
-              {...getAgentStatus('supplier')}
-              isActive={getAgentStatus('supplier').status === 'running'}
+              agentKey="supplier_summary"
+              {...getAgentStatus('supplier_summary')}
+              isActive={getAgentStatus('supplier_summary').status === 'running'}
             />
           </div>
         </div>
@@ -179,14 +179,14 @@ export default function AgentOrchestration({ overallProgress, getAgentStatus }: 
             </div>
             <div className="grid md:grid-cols-2 gap-4">
               <AgentCard 
-                agentKey="market"
-                {...getAgentStatus('market')}
-                isActive={getAgentStatus('market').status === 'running'}
+                agentKey="market_analysis"
+                {...getAgentStatus('market_analysis')}
+                isActive={getAgentStatus('market_analysis').status === 'running'}
               />
               <AgentCard 
-                agentKey="outcome"
-                {...getAgentStatus('outcome')}
-                isActive={getAgentStatus('outcome').status === 'running'}
+                agentKey="outcome_assessment"
+                {...getAgentStatus('outcome_assessment')}
+                isActive={getAgentStatus('outcome_assessment').status === 'running'}
               />
             </div>
           </div>
@@ -199,9 +199,9 @@ export default function AgentOrchestration({ overallProgress, getAgentStatus }: 
           </div>
           <div className="flex-1">
             <AgentCard 
-              agentKey="analyze"
-              {...getAgentStatus('analyze')}
-              isActive={getAgentStatus('analyze').status === 'running'}
+              agentKey="action_items"
+              {...getAgentStatus('action_items')}
+              isActive={getAgentStatus('action_items').status === 'running'}
             />
           </div>
         </div>
