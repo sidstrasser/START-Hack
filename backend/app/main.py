@@ -20,10 +20,10 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS middleware for Next.js frontend
+# CORS middleware - allow all origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -67,9 +67,7 @@ async def health():
 
 # Import and include API routes
 from app.api.routes import router as api_router
-from app.api.elevenlabs_routes import router as elevenlabs_router
 app.include_router(api_router, prefix="/api")
-app.include_router(elevenlabs_router, prefix="/api")
 
 
 if __name__ == "__main__":

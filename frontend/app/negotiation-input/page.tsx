@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
-import type { ExtractedData } from "@/lib/types";
+import type { ExtractedData, FormDataInput } from "@/lib/types";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ErrorAlert } from "@/components/ErrorAlert";
 
@@ -12,28 +12,18 @@ export default function NegotiationInput() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [documentId, setDocumentId] = useState<string | null>(null);
-
-  // General
-  const [supplier, setSupplier] = useState("");
-  const [goals, setGoals] = useState("");
   const [hasExtractedData, setHasExtractedData] = useState(false);
 
-  // Cost & Savings
+  // Form fields matching FormDataInput
+  const [supplierName, setSupplierName] = useState("");
+  const [supplierContact, setSupplierContact] = useState("");
+  const [productDescription, setProductDescription] = useState("");
+  const [productType, setProductType] = useState<"software" | "hardware" | "service">("software");
   const [offerPrice, setOfferPrice] = useState("");
-  const [pricingModel, setPricingModel] = useState("");
-  const [desiredPrice, setDesiredPrice] = useState("");
-  const [isSubstitute, setIsSubstitute] = useState(false);
-  const [currentPrice, setCurrentPrice] = useState("");
-
-  // Value / Requirements (Scale 1-10)
-  const [addedValue, setAddedValue] = useState(5);
-  const [need, setNeed] = useState(5);
-
-  // Risk / Contract (Scale 1-10)
-  const [impactOfOutage, setImpactOfOutage] = useState(5);
-  const [riskAversion, setRiskAversion] = useState(5);
-  const [targetSupport, setTargetSupport] = useState(5);
-  const [complianceRelevance, setComplianceRelevance] = useState(5);
+  const [pricingModel, setPricingModel] = useState<"yearly" | "monthly" | "one-time">("yearly");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [targetPrice, setTargetPrice] = useState("");
+  const [valueAssessment, setValueAssessment] = useState<"urgent" | "high_impact" | "medium_impact" | "low_impact">("medium_impact");
 
   useEffect(() => {
     // Load extracted data if available
@@ -48,26 +38,20 @@ export default function NegotiationInput() {
       try {
         const data: ExtractedData = JSON.parse(storedData);
 
-        if (data.supplier) setSupplier(data.supplier);
-
+        // Pre-fill form with extracted data
+        setSupplierName(data.supplier_name || "");
+        setSupplierContact(data.supplier_contact || "");
+        setProductDescription(data.product_description || "");
+        setProductType(data.product_type || "software");
         setOfferPrice(data.offer_price || "");
-        setPricingModel(data.pricing_model || "");
-        setDesiredPrice(data.desired_price || "");
-        setIsSubstitute(data.is_substitute || false);
-        setCurrentPrice(data.current_price || "");
-
-        if (data.added_value) setAddedValue(data.added_value);
-        if (data.need) setNeed(data.need);
-        if (data.impact_of_outage) setImpactOfOutage(data.impact_of_outage);
-        if (data.risk_aversion) setRiskAversion(data.risk_aversion);
-        if (data.target_support_availability)
-          setTargetSupport(data.target_support_availability);
-        if (data.compliance_relevance)
-          setComplianceRelevance(data.compliance_relevance);
+        setPricingModel(data.pricing_model || "yearly");
+        setMaxPrice(data.max_price || "");
+        setTargetPrice(data.target_price || "");
+        setValueAssessment(data.value_assessment || "medium_impact");
 
         setHasExtractedData(true);
       } catch (e) {
-        console.error(e);
+        console.error("Failed to parse extracted data:", e);
       }
     }
   }, []);
@@ -76,50 +60,35 @@ export default function NegotiationInput() {
     e.preventDefault();
 
     if (!documentId) {
-      setError(
-        "No document uploaded. Please upload a document first or go back."
-      );
+      setError("No document uploaded. Please upload a document first or go back.");
+      return;
+    }
+
+    if (!supplierName || !productDescription || !offerPrice || !targetPrice || !maxPrice) {
+      setError("Please fill in all required fields (marked with *)");
       return;
     }
 
     setLoading(true);
     setError(null);
 
-    // Collect all form data into a structured object
-    const negotiationFormData = {
-      supplier,
-      goals,
-      // Cost & Savings
+    // Build form_data matching FormDataInput
+    const formData: FormDataInput = {
+      supplier_name: supplierName,
+      supplier_contact: supplierContact || null,
+      product_description: productDescription,
+      product_type: productType,
       offer_price: offerPrice,
       pricing_model: pricingModel,
-      desired_price: desiredPrice,
-      is_substitute: isSubstitute,
-      current_price: isSubstitute ? currentPrice : null,
-      // Value
-      added_value: addedValue,
-      need: need,
-      // Risk
-      impact_of_outage: impactOfOutage,
-      risk_aversion: riskAversion,
-      target_support_availability: targetSupport,
-      compliance_relevance: complianceRelevance,
+      max_price: maxPrice,
+      target_price: targetPrice,
+      value_assessment: valueAssessment,
     };
 
     try {
-      // Save the user's input to session storage for reference in the next step
-      sessionStorage.setItem(
-        "negotiationInput",
-        JSON.stringify(negotiationFormData)
-      );
-
-      // Store goals separately for easy access during live call
-      if (goals) {
-        sessionStorage.setItem("negotiationGoals", goals);
-      }
-
       const response = await api.generateBriefing({
         document_id: documentId,
-        additional_context: negotiationFormData,
+        form_data: formData,
       });
 
       // Store job_id for briefing page
@@ -131,38 +100,6 @@ export default function NegotiationInput() {
       setLoading(false);
     }
   };
-
-  // Helper for Range Input
-  const RangeInput = ({
-    label,
-    value,
-    onChange,
-  }: {
-    label: string;
-    value: number;
-    onChange: (val: number) => void;
-  }) => (
-    <div>
-      <div className="flex justify-between mb-2">
-        <label className="block text-sm font-medium text-gray-700">
-          {label}
-        </label>
-        <span className="text-sm font-bold text-blue-600">{value}/10</span>
-      </div>
-      <input
-        type="range"
-        min="0"
-        max="10"
-        value={value}
-        onChange={(e) => onChange(parseInt(e.target.value))}
-        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-      />
-      <div className="flex justify-between text-xs text-gray-500 mt-1">
-        <span>Low</span>
-        <span>High</span>
-      </div>
-    </div>
-  );
 
   return (
     <main className="min-h-screen bg-gray-50 py-12">
@@ -190,8 +127,7 @@ export default function NegotiationInput() {
                 />
               </svg>
               <p className="text-sm text-green-800 font-medium">
-                Data automatically extracted from your PDF. Please review and
-                edit as needed.
+                Data automatically extracted from your PDF. Please review and edit as needed.
               </p>
             </div>
           </div>
@@ -201,164 +137,238 @@ export default function NegotiationInput() {
           onSubmit={handleSubmit}
           className="bg-white rounded-lg shadow-lg p-8 space-y-8"
         >
-          {/* General Info */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Supplier Name
-            </label>
-            <input
-              type="text"
-              value={supplier}
-              onChange={(e) => setSupplier(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Enter supplier name"
-            />
-          </div>
-
-          {/* Section 1: Cost & Savings */}
+          {/* Supplier Information */}
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-4 border-b pb-2">
-              Cost & Savings
+              Supplier Information
             </h2>
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Offer Price
+                  Supplier Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={supplierName}
+                  onChange={(e) => setSupplierName(e.target.value)}
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Acme Corporation"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Contact Information
+                </label>
+                <input
+                  type="text"
+                  value={supplierContact}
+                  onChange={(e) => setSupplierContact(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Email, phone, or website"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Product Details */}
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 mb-4 border-b pb-2">
+              Product / Service Details
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={productDescription}
+                  onChange={(e) => setProductDescription(e.target.value)}
+                  required
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Describe the product or service being offered"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Type <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="productType"
+                      value="software"
+                      checked={productType === "software"}
+                      onChange={(e) => setProductType(e.target.value as "software")}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">Software</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="productType"
+                      value="hardware"
+                      checked={productType === "hardware"}
+                      onChange={(e) => setProductType(e.target.value as "hardware")}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">Hardware</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="productType"
+                      value="service"
+                      checked={productType === "service"}
+                      onChange={(e) => setProductType(e.target.value as "service")}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">Service</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Pricing Information */}
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 mb-4 border-b pb-2">
+              Pricing
+            </h2>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Offer Price <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={offerPrice}
                   onChange={(e) => setOfferPrice(e.target.value)}
+                  required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="e.g. €50,000"
+                  placeholder="e.g., €50,000 or $1,200/month"
                 />
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Pricing Model
+                  Pricing Model <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   value={pricingModel}
-                  onChange={(e) => setPricingModel(e.target.value)}
+                  onChange={(e) => setPricingModel(e.target.value as "yearly" | "monthly" | "one-time")}
+                  required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="e.g. Fixed Price"
-                />
+                >
+                  <option value="yearly">Yearly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="one-time">One-time</option>
+                </select>
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Desired Price
+                  Target Price <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  value={desiredPrice}
-                  onChange={(e) => setDesiredPrice(e.target.value)}
+                  value={targetPrice}
+                  onChange={(e) => setTargetPrice(e.target.value)}
+                  required
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Target price"
+                  placeholder="Ideal negotiation target"
                 />
               </div>
 
-              <div className="flex flex-col justify-center pt-6">
-                <div className="flex items-center gap-6">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="substitute"
-                      checked={!isSubstitute}
-                      onChange={() => setIsSubstitute(false)}
-                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-700">New Solution</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="substitute"
-                      checked={isSubstitute}
-                      onChange={() => setIsSubstitute(true)}
-                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="text-sm text-gray-700">Substitute</span>
-                  </label>
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Maximum Price <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={maxPrice}
+                  onChange={(e) => setMaxPrice(e.target.value)}
+                  required
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Maximum acceptable price"
+                />
               </div>
+            </div>
+          </div>
 
-              {isSubstitute && (
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Current Price (Is-Price)
-                  </label>
+          {/* Business Value Assessment */}
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 mb-4 border-b pb-2">
+              Business Value Assessment
+            </h2>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                How would you assess this purchase? <span className="text-red-500">*</span>
+              </label>
+              <div className="space-y-3">
+                <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
                   <input
-                    type="text"
-                    value={currentPrice}
-                    onChange={(e) => setCurrentPrice(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Cost of current solution"
+                    type="radio"
+                    name="valueAssessment"
+                    value="urgent"
+                    checked={valueAssessment === "urgent"}
+                    onChange={(e) => setValueAssessment(e.target.value as "urgent")}
+                    className="mt-1 w-4 h-4 text-blue-600 focus:ring-blue-500"
                   />
-                </div>
-              )}
+                  <div>
+                    <span className="font-medium text-gray-900">Urgent</span>
+                    <p className="text-sm text-gray-600">Time-sensitive or critical business need</p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                  <input
+                    type="radio"
+                    name="valueAssessment"
+                    value="high_impact"
+                    checked={valueAssessment === "high_impact"}
+                    onChange={(e) => setValueAssessment(e.target.value as "high_impact")}
+                    className="mt-1 w-4 h-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="font-medium text-gray-900">High Impact</span>
+                    <p className="text-sm text-gray-600">Strategically important for the business</p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                  <input
+                    type="radio"
+                    name="valueAssessment"
+                    value="medium_impact"
+                    checked={valueAssessment === "medium_impact"}
+                    onChange={(e) => setValueAssessment(e.target.value as "medium_impact")}
+                    className="mt-1 w-4 h-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="font-medium text-gray-900">Medium Impact</span>
+                    <p className="text-sm text-gray-600">Moderately important for operations</p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                  <input
+                    type="radio"
+                    name="valueAssessment"
+                    value="low_impact"
+                    checked={valueAssessment === "low_impact"}
+                    onChange={(e) => setValueAssessment(e.target.value as "low_impact")}
+                    className="mt-1 w-4 h-4 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className="font-medium text-gray-900">Low Impact</span>
+                    <p className="text-sm text-gray-600">Low priority or nice-to-have</p>
+                  </div>
+                </label>
+              </div>
             </div>
-          </div>
-
-          {/* Section 2: Value / Requirements */}
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-4 border-b pb-2">
-              Value / Requirements
-            </h2>
-            <div className="space-y-6">
-              <RangeInput
-                label="Added Value"
-                value={addedValue}
-                onChange={setAddedValue}
-              />
-              <RangeInput
-                label="Need / Urgency"
-                value={need}
-                onChange={setNeed}
-              />
-            </div>
-          </div>
-
-          {/* Section 3: Risk / Contract */}
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-4 border-b pb-2">
-              Risk / Contract
-            </h2>
-            <div className="grid md:grid-cols-2 gap-6">
-              <RangeInput
-                label="Impact of Outage"
-                value={impactOfOutage}
-                onChange={setImpactOfOutage}
-              />
-              <RangeInput
-                label="Risk Aversion"
-                value={riskAversion}
-                onChange={setRiskAversion}
-              />
-              <RangeInput
-                label="Target Support Availability"
-                value={targetSupport}
-                onChange={setTargetSupport}
-              />
-              <RangeInput
-                label="Compliance Relevance"
-                value={complianceRelevance}
-                onChange={setComplianceRelevance}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Negotiation Goals (Optional)
-            </label>
-            <textarea
-              value={goals}
-              onChange={(e) => setGoals(e.target.value)}
-              rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="What do you want to achieve in this negotiation? (e.g., 10% price reduction, faster delivery)"
-            />
           </div>
 
           <button
