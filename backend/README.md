@@ -1,27 +1,37 @@
-# Negotiation Briefing MAS Backend
+# Accordion Backend
 
-Multi-Agent System (MAS) for automated negotiation briefing generation using LangGraph and OpenAI GPT-4o.
+Backend service for **Accordion** - an AI-powered procurement support tool that generates comprehensive negotiation briefings using a Multi-Agent System (MAS).
+
+## Overview
+
+Accordion helps procurement professionals prepare for supplier negotiations by:
+
+1. Analyzing procurement offers (PDF upload)
+2. Researching the negotiation partner
+3. Identifying leverage points and opportunities
+4. Generating actionable negotiation briefings
+
+The backend uses a LangGraph-based multi-agent workflow powered by OpenAI GPT-4o to automate the briefing generation process.
 
 ## Features
 
 - **PDF Upload & Parsing**: Extract structured data from procurement offers
 - **5-Agent LangGraph Workflow**:
-  - Orchestrator: Validates inputs and controls flow
-  - Goal Normalizer: Structures negotiation goals from freetext
-  - Research Agent: Web research on negotiation partner (Tavily)
-  - Potential Agent: Identifies leverage points and opportunities
-  - Briefing Agent: Creates comprehensive negotiation briefing
-- **Real-time Progress Tracking**: Server-Sent Events (SSE) for live updates
-- **Vector Database**: Currently disabled (awaiting new instructions)
-- **RESTful API**: FastAPI endpoints for Next.js frontend
+  - **Orchestrator**: Validates inputs and controls agent flow
+  - **Goal Normalizer**: Structures negotiation goals from freetext input
+  - **Research Agent**: Conducts web research on negotiation partner (via Tavily)
+  - **Potential Agent**: Identifies leverage points and negotiation opportunities
+  - **Briefing Agent**: Creates comprehensive, actionable negotiation briefing
+- **Real-time Progress Tracking**: Server-Sent Events (SSE) for live UI updates
+- **RESTful API**: FastAPI endpoints for the Next.js frontend
 
 ## Tech Stack
 
-- FastAPI
-- LangGraph + LangChain
-- OpenAI GPT-4o
-- pdfplumber
-- Tavily Search API
+- **FastAPI** - Web framework
+- **LangGraph + LangChain** - Multi-agent orchestration
+- **OpenAI GPT-4o** - LLM for analysis and generation
+- **pdfplumber** - PDF text extraction
+- **Tavily Search API** - Web research
 
 ## Setup
 
@@ -43,6 +53,7 @@ cp .env.example .env
 ```
 
 Edit `.env`:
+
 ```env
 OPENAI_API_KEY=sk-...
 TAVILY_API_KEY=tvly-...
@@ -62,6 +73,7 @@ API Docs: http://localhost:8000/docs
 ## API Endpoints
 
 ### 1. Upload PDF
+
 ```bash
 POST /api/upload-pdf
 Content-Type: multipart/form-data
@@ -74,6 +86,7 @@ Content-Type: multipart/form-data
 ```
 
 ### 2. Generate Briefing
+
 ```bash
 POST /api/generate-briefing
 Content-Type: application/json
@@ -90,6 +103,7 @@ Content-Type: application/json
 ```
 
 ### 3. Stream Progress (SSE)
+
 ```bash
 GET /api/progress/{job_id}
 
@@ -100,6 +114,7 @@ data: {"agent": "goal_normalizer", "status": "completed", "message": "...", "pro
 ```
 
 ### 4. Get Briefing
+
 ```bash
 GET /api/briefing/{job_id}
 
@@ -112,6 +127,7 @@ GET /api/briefing/{job_id}
 ```
 
 ### 5. Query Briefing (RAG)
+
 ```bash
 POST /api/query-briefing
 Content-Type: application/json
@@ -160,11 +176,13 @@ backend/
 ## Development
 
 ### Test Upload Endpoint
+
 ```bash
 curl -X POST -F "file=@test.pdf" http://localhost:8000/api/upload-pdf
 ```
 
 ### Test Full Pipeline
+
 ```python
 import requests
 
@@ -200,14 +218,17 @@ for event in client.events():
 ## Troubleshooting
 
 **Issue**: `ModuleNotFoundError`
+
 - Make sure virtual environment is activated
 - Run `pip install -r requirements.txt`
 
 **Issue**: OpenAI API errors
+
 - Check your API key in `.env`
 - Verify you have credits
 
 **Issue**: Tavily search fails
+
 - Check Tavily API key
 - Research agent will use fallback data if search fails
 
