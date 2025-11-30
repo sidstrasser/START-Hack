@@ -103,8 +103,20 @@ export default function LiveCall() {
 
   // Toast helper
   const showToast = useCallback((message: string, type: "success" | "info" | "warning" = "success", emotion?: string) => {
-    const id = ++toastIdRef.current;
-    setToasts(prev => [...prev, { id, message, type, emotion }]);
+    // For "No Face" toasts, only show one at a time
+    if (emotion === 'No Face') {
+      setToasts(prev => {
+        // Check if there's already a "No Face" toast
+        if (prev.some(t => t.emotion === 'No Face')) {
+          return prev; // Don't add another one
+        }
+        const id = ++toastIdRef.current;
+        return [...prev, { id, message, type, emotion }];
+      });
+    } else {
+      const id = ++toastIdRef.current;
+      setToasts(prev => [...prev, { id, message, type, emotion }]);
+    }
   }, []);
 
   const removeToast = useCallback((id: number) => {
