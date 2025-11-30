@@ -49,10 +49,10 @@ export default function Metric({ label, value, color, fillPercentage, icon }: Me
         </div>
         {/* Progress bar */}
         <div className={`w-full h-1 ${colors.track} rounded-full overflow-hidden`}>
-          <div
+        <div
             className={`h-full ${colors.fill} transition-all duration-500 ease-out`}
-            style={{ width: `${Math.min(100, Math.max(0, fillPercentage))}%` }}
-          />
+          style={{ width: `${Math.min(100, Math.max(0, fillPercentage))}%` }}
+        />
         </div>
       </div>
     </div>

@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     # Pinecone
     pinecone_api_key: str
     pinecone_index_name: str
+    # HubSpot
+    hubspot_api_key: str
 
     # App Config
     upload_dir: str = "./uploads"
