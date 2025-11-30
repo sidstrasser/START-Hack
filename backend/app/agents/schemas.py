@@ -3,7 +3,7 @@ Pydantic schemas for the negotiation briefing system.
 
 This module defines all structured data models used throughout the pipeline:
 - Input models (FormData, AlternativeSupplier)
-- Node output models (ParsedInput, ResearchOutput, FinalBriefing)
+- Node output models (ParsedInput, SupplierSummary, MarketAnalysis, OfferAnalysis, OutcomeAssessment, ActionItemsList)
 - Sub-models for complex nested structures
 """
 
@@ -46,20 +46,17 @@ class AlternativeSupplier(BaseModel):
 class ParsedInput(BaseModel):
     """Output from the parse node - validated and structured inputs."""
 
-    supplier_offer_text: str = Field(description="Full text extracted from supplier offer PDF")
+    supplier_offer_text: str = Field(description="Full text from supplier offer PDF (contains pricing = max price)")
+    initial_request_text: str = Field(description="Full text from initial request PDF (what we're looking for)")
     alternatives: List[AlternativeSupplier] = Field(
         default_factory=list,
         description="List of alternative suppliers extracted from PDF"
     )
     form_data: FormData = Field(description="User-provided structured form data")
-    additional_context: Optional[str] = Field(
-        default=None,
-        description="Additional context text from optional PDF"
-    )
 
 
 # ============================================================================
-# RESEARCH NODE OUTPUT
+# SHARED MODELS
 # ============================================================================
 
 class CompanyOverview(BaseModel):
@@ -71,26 +68,8 @@ class CompanyOverview(BaseModel):
     industry: Optional[str] = Field(default=None, description="Primary industry/sector")
 
 
-class ResearchOutput(BaseModel):
-    """Output from the research node - web-sourced company information."""
-
-    company_overview: CompanyOverview = Field(description="Company profile information")
-    key_facts: List[str] = Field(
-        description="Key facts about the company (max 5 bullet points)",
-        max_length=5
-    )
-    recent_news: List[str] = Field(
-        description="Recent news about the company (max 3 items)",
-        max_length=3
-    )
-    contact_info: Optional[str] = Field(
-        default=None,
-        description="Contact information for the supplier"
-    )
-
-
 # ============================================================================
-# ANALYZE NODE OUTPUT - FINAL BRIEFING
+# PARALLEL AGENT OUTPUTS
 # ============================================================================
 
 class SupplierSummary(BaseModel):
@@ -165,14 +144,10 @@ class ActionItem(BaseModel):
     description: str = Field(description="Description of the action to take")
 
 
-class FinalBriefing(BaseModel):
-    """Complete negotiation briefing with all analysis sections."""
+class ActionItemsList(BaseModel):
+    """Output from the action_items agent - exactly 5 prioritized action items."""
 
-    supplier_summary: SupplierSummary = Field(description="Section 1: Supplier Summary")
-    market_analysis: MarketAnalysis = Field(description="Section 2: Market Analysis")
-    offer_analysis: OfferAnalysis = Field(description="Section 3: Offer Analysis")
-    outcome_assessment: OutcomeAssessment = Field(description="Section 4: Outcome Assessment")
-    action_items: List[ActionItem] = Field(
+    items: List[ActionItem] = Field(
         description="Exactly 5 most important action items to take",
         min_length=5,
         max_length=5

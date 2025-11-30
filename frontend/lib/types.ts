@@ -45,7 +45,17 @@ export interface ProgressEvent {
   agent: string;
   status: "running" | "completed" | "error" | "keepalive";
   message: string;
-  progress: number; // 0.0 to 1.0
+  detail?: string; // Optional detailed description of what's happening
+  progress: number; // 0.0 to 1.0 (overall pipeline progress)
+  agentProgress?: number; // 0.0 to 1.0 (individual agent progress)
+}
+
+export interface AgentStatus {
+  name: string;
+  status: "pending" | "running" | "completed" | "error";
+  message: string;
+  detail?: string;
+  progress: number; // 0-1
 }
 
 // New 5-section briefing structure
@@ -86,8 +96,8 @@ export interface OfferAnalysis {
 
 export interface OutcomeAssessment {
   target_achievable: boolean;
-  confidence: number; // 0.0-1.0
-  negotiation_leverage: string;
+  confidence: string; // "High", "Medium", or "Low"
+  negotiation_leverage: string[];
   recommended_tactics: string[]; // 3-5 items
   partnership_recommendation: string;
 }
@@ -97,19 +107,22 @@ export interface ActionItem {
   description: string;
 }
 
-export interface FinalBriefing {
+export interface ActionItemsList {
+  items: ActionItem[];
+}
+
+export interface BriefingData {
   supplier_summary: SupplierSummary;
   market_analysis: MarketAnalysis;
   offer_analysis: OfferAnalysis;
   outcome_assessment: OutcomeAssessment;
-  action_items: ActionItem[];
+  action_items: ActionItemsList;
 }
 
 export interface BriefingResult {
-  briefing: FinalBriefing;
+  briefing: BriefingData | null;
   status: string;
   vector_db_id: string | null;
-  stored_to_pinecone: boolean;
 }
 
 export interface QueryBriefingRequest {

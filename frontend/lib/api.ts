@@ -42,6 +42,43 @@ async function fetchJSON<T>(
 }
 
 export const api = {
+  /**
+   * Upload documents for negotiation briefing.
+   * @param supplierOffer - Required: Supplier's offer PDF (contains pricing = max price)
+   * @param initialRequest - Required: Initial request PDF (what we're looking for)
+   * @param alternatives - Optional: Alternative suppliers PDF
+   */
+  uploadDocuments: async (
+    supplierOffer: File,
+    initialRequest: File,
+    alternatives: File | null
+  ): Promise<UploadResponse> => {
+    const formData = new FormData();
+    formData.append("supplier_offer", supplierOffer);
+    formData.append("initial_request", initialRequest);
+    if (alternatives) {
+      formData.append("alternatives", alternatives);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/upload-pdf`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response
+        .json()
+        .catch(() => ({ detail: "Upload failed" }));
+      throw new APIError(
+        response.status,
+        error.detail || error.message || "Upload failed"
+      );
+    }
+
+    return response.json();
+  },
+
+  // Legacy function for backwards compatibility
   uploadPDF: async (files: File[]): Promise<UploadResponse> => {
     const formData = new FormData();
     files.forEach((file) => {

@@ -4,10 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useSSE } from '@/lib/hooks/useSSE';
+import { useParallelAgents } from '@/lib/hooks/useParallelAgents';
 import type { ProgressEvent, BriefingResult } from '@/lib/types';
-import { ProgressBar } from '@/components/ProgressBar';
-import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorAlert } from '@/components/ErrorAlert';
+import AgentProgressCard from '@/components/AgentProgressCard';
 
 export default function Briefing() {
   const router = useRouter();
@@ -19,6 +19,9 @@ export default function Briefing() {
   // SSE connection for progress tracking
   const sseUrl = jobId ? `http://localhost:8000/api/progress/${jobId}` : null;
   const { data: progressEvent, error: sseError } = useSSE<ProgressEvent>(sseUrl, !!jobId);
+
+  // Track parallel agent execution
+  const { agents, agentsArray, overallProgress, allComplete } = useParallelAgents(progressHistory);
 
   useEffect(() => {
     const storedJobId = sessionStorage.getItem('jobId');
@@ -35,23 +38,16 @@ export default function Briefing() {
         agent: progressEvent.agent,
         status: progressEvent.status,
         progress: progressEvent.progress,
+        agentProgress: progressEvent.agentProgress,
         message: progressEvent.message
       });
 
       setProgressHistory(prev => [...prev, progressEvent]);
 
-      // Only fetch briefing when the entire pipeline is complete (progress = 1.0)
-      if (progressEvent.status === 'completed' && jobId) {
-        console.log('[BRIEFING PAGE] Checking if should fetch briefing:', {
-          progress: progressEvent.progress,
-          agent: progressEvent.agent,
-          shouldFetch: progressEvent.progress === 1.0
-        });
-
-        if (progressEvent.progress === 1.0) {
-          console.log('[BRIEFING PAGE] Fetching briefing...');
-          fetchBriefing(jobId);
-        }
+      // Fetch briefing when complete
+      if (progressEvent.status === 'completed' && progressEvent.progress === 1.0 && jobId) {
+        console.log('[BRIEFING PAGE] Pipeline complete, fetching briefing...');
+        fetchBriefing(jobId);
       }
 
       // Handle errors
@@ -70,14 +66,15 @@ export default function Briefing() {
         sessionStorage.setItem('vectorDbId', result.vector_db_id);
       }
       // Store action items for action-items page
-      sessionStorage.setItem('actionItems', JSON.stringify(result.briefing.action_items));
+      if (result.briefing?.action_items) {
+        sessionStorage.setItem('actionItems', JSON.stringify(result.briefing.action_items));
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to fetch briefing');
     }
   };
 
   const handleViewActionItems = () => {
-    // Navigate to action items page
     router.push('/action-items');
   };
 
@@ -91,73 +88,52 @@ export default function Briefing() {
     );
   }
 
-  const latestProgress = progressHistory[progressHistory.length - 1];
   const isComplete = briefing !== null;
-  const currentProgress = latestProgress?.progress || 0;
 
   return (
     <main className="min-h-screen bg-gray-50 py-12">
-      <div className="container mx-auto px-4 max-w-4xl">
+      <div className="container mx-auto px-4 max-w-6xl">
         <h1 className="text-4xl font-bold mb-8 text-center">
           {isComplete ? 'Briefing Ready' : 'Generating Briefing'}
         </h1>
 
         {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
 
-        {/* Progress Section */}
+        {/* Parallel Agent Progress */}
         {!isComplete && (
-          <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
-            <ProgressBar
-              progress={currentProgress}
-              label={latestProgress?.message || 'Starting...'}
-            />
+          <div className="space-y-6">
+            {/* Overall Progress Bar */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-lg font-semibold">Overall Progress</h2>
+                <span className="text-sm text-gray-600">{Math.round(overallProgress * 100)}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                  style={{ width: `${overallProgress * 100}%` }}
+                />
+              </div>
+            </div>
 
-            <div className="mt-8 space-y-4">
-              {progressHistory.map((event, idx) => (
-                <div key={idx} className="flex items-start gap-3">
-                  <div
-                    className={`mt-1 rounded-full p-1 flex-shrink-0 ${
-                      event.status === 'completed'
-                        ? 'bg-green-100'
-                        : event.status === 'error'
-                        ? 'bg-red-100'
-                        : 'bg-blue-100'
-                    }`}
-                  >
-                    {event.status === 'completed' ? (
-                      <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                        <path
-                          fillRule="evenodd"
-                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    ) : event.status === 'error' ? (
-                      <svg className="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-                        <path
-                          fillRule="evenodd"
-                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    ) : (
-                      <LoadingSpinner size="sm" />
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900 capitalize">
-                      {event.agent.replace('_', ' ')}
-                    </p>
-                    <p className="text-sm text-gray-600">{event.message}</p>
-                  </div>
-                </div>
+            {/* Agent Progress Cards */}
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {agentsArray.map(agent => (
+                <AgentProgressCard
+                  key={agent.name}
+                  name={agent.name}
+                  status={agent.status}
+                  message={agent.message}
+                  detail={agent.detail}
+                  progress={agent.progress}
+                />
               ))}
             </div>
           </div>
         )}
 
         {/* Briefing Display */}
-        {isComplete && briefing && (
+        {isComplete && briefing && briefing.briefing && (
           <div className="bg-white rounded-lg shadow-lg p-8">
             <div className="space-y-8">
               {/* 1. Supplier Summary */}
@@ -169,21 +145,33 @@ export default function Briefing() {
                   <div className="space-y-4">
                     <div>
                       <h3 className="text-xl font-semibold text-gray-800 mb-2">Company Overview</h3>
-                      <p className="text-gray-700">{briefing.briefing.supplier_summary.company_overview.business_description}</p>
-                      <div className="mt-2 grid md:grid-cols-3 gap-4 text-sm">
-                        <div><span className="font-medium">Size:</span> {briefing.briefing.supplier_summary.company_overview.size}</div>
-                        <div><span className="font-medium">Location:</span> {briefing.briefing.supplier_summary.company_overview.location}</div>
-                        <div><span className="font-medium">Industry:</span> {briefing.briefing.supplier_summary.company_overview.industry}</div>
+                      <p className="text-gray-700">{briefing.briefing.supplier_summary.company_overview.description}</p>
+                      {(briefing.briefing.supplier_summary.company_overview.size ||
+                        briefing.briefing.supplier_summary.company_overview.location ||
+                        briefing.briefing.supplier_summary.company_overview.industry) && (
+                        <div className="mt-2 grid md:grid-cols-3 gap-4 text-sm">
+                          {briefing.briefing.supplier_summary.company_overview.size && (
+                            <div><span className="font-medium">Size:</span> {briefing.briefing.supplier_summary.company_overview.size}</div>
+                          )}
+                          {briefing.briefing.supplier_summary.company_overview.location && (
+                            <div><span className="font-medium">Location:</span> {briefing.briefing.supplier_summary.company_overview.location}</div>
+                          )}
+                          {briefing.briefing.supplier_summary.company_overview.industry && (
+                            <div><span className="font-medium">Industry:</span> {briefing.briefing.supplier_summary.company_overview.industry}</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {briefing.briefing.supplier_summary.key_facts && briefing.briefing.supplier_summary.key_facts.length > 0 && (
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-800 mb-2">Key Facts</h3>
+                        <ul className="list-disc pl-6 space-y-1">
+                          {briefing.briefing.supplier_summary.key_facts.map((fact: string, idx: number) => (
+                            <li key={idx} className="text-gray-700">{fact}</li>
+                          ))}
+                        </ul>
                       </div>
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Key Facts</h3>
-                      <ul className="list-disc pl-6 space-y-1">
-                        {briefing.briefing.supplier_summary.key_facts.map((fact: string, idx: number) => (
-                          <li key={idx} className="text-gray-700">{fact}</li>
-                        ))}
-                      </ul>
-                    </div>
+                    )}
                     {briefing.briefing.supplier_summary.recent_news && briefing.briefing.supplier_summary.recent_news.length > 0 && (
                       <div>
                         <h3 className="text-xl font-semibold text-gray-800 mb-2">Recent News</h3>
@@ -212,26 +200,9 @@ export default function Briefing() {
                   </h2>
                   <div className="space-y-4">
                     <div>
-                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Market Overview</h3>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Alternatives Overview</h3>
                       <p className="text-gray-700">{briefing.briefing.market_analysis.alternatives_overview}</p>
                     </div>
-                    {briefing.briefing.market_analysis.alternatives_list && briefing.briefing.market_analysis.alternatives_list.length > 0 && (
-                      <div>
-                        <h3 className="text-xl font-semibold text-gray-800 mb-2">Alternative Suppliers</h3>
-                        <div className="space-y-3">
-                          {briefing.briefing.market_analysis.alternatives_list.map((alt: any, idx: number) => (
-                            <div key={idx} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                              <div className="font-semibold text-gray-900">{alt.supplier_name}</div>
-                              <div className="text-sm text-gray-700 mt-1">{alt.product_description}</div>
-                              <div className="mt-2 flex gap-4 text-sm">
-                                <span><span className="font-medium">Price:</span> {alt.offer_price}</span>
-                                <span><span className="font-medium">Model:</span> {alt.pricing_model}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                     <div>
                       <h3 className="text-xl font-semibold text-gray-800 mb-2">Price Positioning</h3>
                       <p className="text-gray-700">{briefing.briefing.market_analysis.price_positioning}</p>
@@ -297,14 +268,21 @@ export default function Briefing() {
                             Target Price {briefing.briefing.outcome_assessment.target_achievable ? 'Achievable' : 'Not Achievable'}
                           </h3>
                           <p className={`text-sm ${briefing.briefing.outcome_assessment.target_achievable ? 'text-green-700' : 'text-red-700'}`}>
-                            Confidence: {(briefing.briefing.outcome_assessment.confidence * 100).toFixed(0)}%
+                            Confidence: {briefing.briefing.outcome_assessment.confidence}
                           </p>
                         </div>
                       </div>
                     </div>
                     <div>
                       <h3 className="text-xl font-semibold text-gray-800 mb-2">Negotiation Leverage</h3>
-                      <p className="text-gray-700">{briefing.briefing.outcome_assessment.negotiation_leverage}</p>
+                      <ul className="list-disc pl-6 space-y-1">
+                        {(Array.isArray(briefing.briefing.outcome_assessment.negotiation_leverage)
+                          ? briefing.briefing.outcome_assessment.negotiation_leverage
+                          : [briefing.briefing.outcome_assessment.negotiation_leverage]
+                        ).map((item: string, idx: number) => (
+                          <li key={idx} className="text-gray-700">{item}</li>
+                        ))}
+                      </ul>
                     </div>
                     <div>
                       <h3 className="text-xl font-semibold text-gray-800 mb-2">Recommended Tactics</h3>

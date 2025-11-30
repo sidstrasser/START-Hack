@@ -46,15 +46,28 @@ async def parse_node(state: NegotiationState, config: RunnableConfig) -> Negotia
     await progress_tracker.publish(job_id, {
         "agent": "parse",
         "status": "running",
-        "message": "Validating and parsing inputs...",
-        "progress": 0.1
+        "message": "Starting input validation...",
+        "detail": "Checking required documents and form data",
+        "progress": 0.05
     })
 
     # ========================================================================
-    # STEP 1: VALIDATE REQUIRED INPUTS
+    # STEP 1: VALIDATE REQUIRED INPUTS (3 document types)
     # ========================================================================
     if not state.get("supplier_offer_pdf"):
         error_msg = "Missing supplier offer PDF text"
+        logger.error(f"[PARSE] {error_msg}")
+        state["errors"].append(error_msg)
+        await progress_tracker.publish(job_id, {
+            "agent": "parse",
+            "status": "error",
+            "message": error_msg,
+            "progress": 0.1
+        })
+        return state
+
+    if not state.get("initial_request_pdf"):
+        error_msg = "Missing initial request PDF text"
         logger.error(f"[PARSE] {error_msg}")
         state["errors"].append(error_msg)
         await progress_tracker.publish(job_id, {
@@ -94,6 +107,14 @@ async def parse_node(state: NegotiationState, config: RunnableConfig) -> Negotia
 
     logger.info(f"[PARSE] Inputs validated successfully")
 
+    await progress_tracker.publish(job_id, {
+        "agent": "parse",
+        "status": "running",
+        "message": "Validation complete",
+        "detail": f"Processing supplier: {form_data.supplier_name}",
+        "progress": 0.08
+    })
+
     # ========================================================================
     # STEP 2: EXTRACT ALTERNATIVES FROM PDF (IF PROVIDED)
     # ========================================================================
@@ -104,13 +125,21 @@ async def parse_node(state: NegotiationState, config: RunnableConfig) -> Negotia
         await progress_tracker.publish(job_id, {
             "agent": "parse",
             "status": "running",
-            "message": "Extracting alternative suppliers...",
-            "progress": 0.15
+            "message": "Analyzing alternatives document...",
+            "detail": "Using AI to extract competitor information",
+            "progress": 0.10
         })
 
         try:
             alternatives = await extract_alternatives_from_pdf(state["alternatives_pdf"])
             logger.info(f"[PARSE] Extracted {len(alternatives)} alternative suppliers")
+            await progress_tracker.publish(job_id, {
+                "agent": "parse",
+                "status": "running",
+                "message": f"Found {len(alternatives)} alternative suppliers",
+                "detail": "Structuring competitor data for analysis",
+                "progress": 0.12
+            })
         except Exception as e:
             # Don't fail the pipeline if alternatives extraction fails
             logger.warning(f"[PARSE] Failed to extract alternatives: {str(e)}")
@@ -121,24 +150,33 @@ async def parse_node(state: NegotiationState, config: RunnableConfig) -> Negotia
     # ========================================================================
     # STEP 3: BUILD PARSED INPUT
     # ========================================================================
+    await progress_tracker.publish(job_id, {
+        "agent": "parse",
+        "status": "running",
+        "message": "Building structured data...",
+        "detail": "Finalizing input preparation for analysis",
+        "progress": 0.13
+    })
+
     parsed_input = ParsedInput(
         supplier_offer_text=state["supplier_offer_pdf"],
+        initial_request_text=state["initial_request_pdf"],
         alternatives=alternatives,
-        form_data=form_data,
-        additional_context=state.get("additional_context_pdf")
+        form_data=form_data
     )
 
     # Update state
     state["parsed_input"] = parsed_input.dict()
     state["current_agent"] = "parse"
-    state["progress"] = 0.3
+    state["progress"] = 0.15
 
     logger.info(f"[PARSE] Parse node completed successfully")
     await progress_tracker.publish(job_id, {
         "agent": "parse",
         "status": "completed",
-        "message": "Input parsing complete",
-        "progress": 0.3
+        "message": "✓ Input validation & parsing complete",
+        "detail": f"Ready to analyze {form_data.supplier_name}",
+        "progress": 0.15
     })
 
     return state

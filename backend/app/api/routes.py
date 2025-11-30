@@ -22,14 +22,20 @@ briefings_store: Dict[str, dict] = {}
 
 
 @router.post("/upload-pdf", response_model=UploadResponse)
-async def upload_pdf(files: List[UploadFile] = File(...)):
+async def upload_pdf(
+    supplier_offer: UploadFile = File(..., description="Supplier offer PDF (required)"),
+    initial_request: UploadFile = File(..., description="Initial request PDF (required)"),
+    alternatives: UploadFile = File(None, description="Potential suppliers list PDF (optional)")
+):
     """
-    Upload 1-3 PDF documents and extract form data for pre-filling.
+    Upload PDF documents for negotiation briefing.
 
-    Expected files (in order):
-    1. Supplier Offer PDF (required)
-    2. Potential Suppliers PDF (optional)
-    3. Additional Context PDF (optional)
+    Required:
+    - supplier_offer: The supplier's offer document (contains pricing = max price orientation)
+    - initial_request: What the company is looking for (product description, requirements)
+
+    Optional:
+    - alternatives: List of potential alternative suppliers for comparison
 
     Returns:
         document_id and auto-extracted form data for pre-filling
@@ -41,45 +47,49 @@ async def upload_pdf(files: List[UploadFile] = File(...)):
     document_id = generate_document_id()
 
     try:
-        # Save uploaded files
-        for file in files:
+        # Helper to save a file
+        def save_file(file: UploadFile, doc_type: str) -> str:
             if not file.filename.endswith(".pdf"):
-                continue
-
-            safe_filename = f"{document_id}_{file.filename}"
+                raise HTTPException(status_code=400, detail=f"{doc_type} must be a PDF file")
+            safe_filename = f"{document_id}_{doc_type}_{file.filename}"
             file_path = os.path.join(settings.upload_dir, safe_filename)
-
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
-
             saved_paths.append(file_path)
+            return file_path
 
-        if not saved_paths:
-            raise HTTPException(status_code=400, detail="No valid PDF files uploaded")
+        # Save required files
+        supplier_offer_path = save_file(supplier_offer, "supplier_offer")
+        initial_request_path = save_file(initial_request, "initial_request")
+
+        # Save optional file
+        alternatives_path = None
+        if alternatives and alternatives.filename:
+            alternatives_path = save_file(alternatives, "alternatives")
 
         # Extract raw text from PDFs
         from app.services.pdf_text_extractor import extract_text_from_pdfs
 
-        texts = extract_text_from_pdfs(saved_paths)
+        # Extract texts separately to maintain document identity
+        supplier_offer_text = extract_text_from_pdfs([supplier_offer_path])[0]
+        initial_request_text = extract_text_from_pdfs([initial_request_path])[0]
+        alternatives_text = extract_text_from_pdfs([alternatives_path])[0] if alternatives_path else None
 
-        # Separate PDFs by position
-        supplier_offer_text = texts[0] if len(texts) > 0 else ""
-        alternatives_text = texts[1] if len(texts) > 1 else None
-        additional_context_text = texts[2] if len(texts) > 2 else None
+        # Auto-extract form data from BOTH documents
+        from app.services.form_extractor import extract_form_data_from_pdfs
 
-        # Auto-extract form data from supplier offer for pre-filling
-        from app.services.form_extractor import extract_form_data_from_pdf
+        extracted_form_data = await extract_form_data_from_pdfs(
+            supplier_offer_text=supplier_offer_text,
+            initial_request_text=initial_request_text
+        )
 
-        extracted_form_data = await extract_form_data_from_pdf(supplier_offer_text)
-
-        # Store PDFs separately
+        # Store PDFs with clear document types
         documents_store[document_id] = {
             "document_id": document_id,
-            "filenames": [f.filename for f in files],
             "file_paths": saved_paths,
             "supplier_offer": supplier_offer_text,
-            "alternatives": alternatives_text,
-            "additional_context": additional_context_text
+            "initial_request": initial_request_text,
+            "alternatives": alternatives_text
         }
 
         return UploadResponse(
@@ -87,6 +97,8 @@ async def upload_pdf(files: List[UploadFile] = File(...)):
             extracted_data=extracted_form_data
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         # Cleanup
         for path in saved_paths:
@@ -148,8 +160,8 @@ async def generate_briefing(
                     job_id=job_id,
                     document_id=request.document_id,
                     supplier_offer_pdf=docs["supplier_offer"],
+                    initial_request_pdf=docs.get("initial_request", ""),
                     alternatives_pdf=docs.get("alternatives"),
-                    additional_context_pdf=docs.get("additional_context"),
                     form_data=request.form_data.model_dump()
                 )
             )

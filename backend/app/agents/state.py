@@ -2,35 +2,51 @@
 State schema for the negotiation briefing LangGraph workflow.
 
 This module defines the shared state that flows through all nodes:
-- parse → research → analyze → END
+- parse → [5 parallel agents] → END
 """
 
-from typing import TypedDict, Dict, List, Any, Optional
+from typing import TypedDict, Dict, List, Any, Optional, Annotated
+from operator import add
+
+
+def merge_dicts(left: Optional[Dict], right: Optional[Dict]) -> Optional[Dict]:
+    """Merge two dicts, with right taking precedence. Used for parallel agent updates."""
+    if left is None:
+        return right
+    if right is None:
+        return left
+    return {**left, **right}
 
 
 class NegotiationState(TypedDict):
     """State shared across all agents in the negotiation briefing workflow."""
 
     # ========================================================================
-    # INPUTS
+    # INPUTS (3 Document Types) - Single value, set once by parse
     # ========================================================================
     document_id: str  # Unique ID for the uploaded documents
-    supplier_offer_pdf: str  # Raw text extracted from supplier offer PDF
-    alternatives_pdf: Optional[str]  # Raw text from alternatives PDF (optional)
-    additional_context_pdf: Optional[str]  # Raw text from additional context PDF (optional)
+    supplier_offer_pdf: str  # Raw text from supplier offer PDF (contains pricing = max price orientation)
+    initial_request_pdf: str  # Raw text from initial request PDF (what we're looking for, requirements)
+    alternatives_pdf: Optional[str]  # Raw text from potential suppliers list (optional, for comparison)
     form_data: Dict[str, Any]  # User-provided structured form data (FormDataInput schema)
 
     # ========================================================================
-    # NODE OUTPUTS
+    # NODE OUTPUTS - Each agent writes to its own key (no conflicts)
     # ========================================================================
     parsed_input: Optional[Dict[str, Any]]  # Output from parse node (ParsedInput schema)
-    research_output: Optional[Dict[str, Any]]  # Output from research node (ResearchOutput schema)
-    final_briefing: Optional[Dict[str, Any]]  # Output from analyze node (FinalBriefing schema)
+
+    # Parallel agent outputs - each agent has exclusive write access to its own field
+    supplier_summary: Optional[Dict[str, Any]]  # Output from supplier_summary agent
+    market_analysis: Optional[Dict[str, Any]]  # Output from market_analysis agent
+    offer_analysis: Optional[Dict[str, Any]]  # Output from offer_analysis agent
+    outcome_assessment: Optional[Dict[str, Any]]  # Output from outcome_assessment agent
+    action_items: Optional[Dict[str, Any]]  # Output from action_items agent (separate from briefing)
 
     # ========================================================================
-    # META/TRACKING
+    # META/TRACKING - Use Annotated with reducers for concurrent updates
     # ========================================================================
-    current_agent: str  # Name of currently executing agent (parse/research/analyze)
-    errors: List[str]  # List of error messages (stops pipeline if non-empty)
-    progress: float  # Progress indicator 0.0-1.0 for frontend
+    current_agent: str  # Name of currently executing agent
+    errors: Annotated[List[str], add]  # List of error messages (use add operator for concurrent appends)
+    progress: float  # Global progress indicator 0.0-1.0 for frontend
+    agent_progress: Annotated[Dict[str, float], merge_dicts]  # Per-agent progress tracking {agent_name: 0.0-1.0}
     job_id: str  # Unique job identifier for tracking and storage

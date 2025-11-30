@@ -8,8 +8,8 @@ class Settings(BaseSettings):
     # OpenAI
     openai_api_key: str
 
-    # Tavily Search
-    tavily_api_key: str
+    # Perplexity Search
+    perplexity_api_key: str
 
     # ElevenLabs
     elevenlabs_api_key: str = ""
