@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 interface ToastProps {
   message: string;
-  type?: "success" | "info";
+  type?: "success" | "info" | "warning";
   onClose: () => void;
   duration?: number;
 }
@@ -54,6 +54,8 @@ export default function Toast({ message, type = "success", onClose, duration = 4
           border
           ${type === "success"
             ? "bg-gradient-to-r from-emerald-500 to-emerald-600 border-emerald-400/30 text-white"
+            : type === "warning"
+            ? "bg-gradient-to-r from-amber-500 to-orange-600 border-orange-400/30 text-white"
             : "bg-gradient-to-r from-blue-500 to-blue-600 border-blue-400/30 text-white"
           }
         `}
@@ -72,6 +74,30 @@ export default function Toast({ message, type = "success", onClose, duration = 4
                   strokeDashoffset: 24,
                   animation: "draw-check 0.3s ease-out 0.3s forwards"
                 }}
+              />
+            </svg>
+          </div>
+        )}
+        {type === "warning" && (
+          <div className="flex-shrink-0 w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2.5} 
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+          </div>
+        )}
+        {type === "info" && (
+          <div className="flex-shrink-0 w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2.5} 
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
           </div>
