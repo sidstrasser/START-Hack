@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     # ElevenLabs
     elevenlabs_api_key: str = ""
 
+    # Pinecone
+    pinecone_api_key: str
+    pinecone_index_name: str
+
     # App Config
     upload_dir: str = "./uploads"
     max_upload_size: int = 10485760  # 10MB

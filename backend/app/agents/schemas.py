@@ -161,13 +161,8 @@ class OutcomeAssessment(BaseModel):
 class ActionItem(BaseModel):
     """Individual action item for the negotiation."""
 
-    category: Literal["price", "terms", "timeline", "scope"] = Field(
-        description="Category of the action item"
-    )
-    priority: Literal["must_have", "nice_to_have"] = Field(
-        description="Priority level"
-    )
-    action: str = Field(description="Description of the action to take")
+    id: int = Field(description="Unique ID for the action item (1-5)")
+    description: str = Field(description="Description of the action to take")
 
 
 class FinalBriefing(BaseModel):
@@ -178,7 +173,7 @@ class FinalBriefing(BaseModel):
     offer_analysis: OfferAnalysis = Field(description="Section 3: Offer Analysis")
     outcome_assessment: OutcomeAssessment = Field(description="Section 4: Outcome Assessment")
     action_items: List[ActionItem] = Field(
-        description="Section 5: Action Items",
+        description="Exactly 5 most important action items to take",
         min_length=5,
-        max_length=10
+        max_length=5
     )

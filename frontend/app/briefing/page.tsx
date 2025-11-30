@@ -66,15 +66,19 @@ export default function Briefing() {
       const result = await api.getBriefing(id);
       setBriefing(result);
       // Store vector_db_id for live-call page
-      sessionStorage.setItem('vectorDbId', result.vector_db_id);
+      if (result.vector_db_id) {
+        sessionStorage.setItem('vectorDbId', result.vector_db_id);
+      }
+      // Store action items for action-items page
+      sessionStorage.setItem('actionItems', JSON.stringify(result.briefing.action_items));
     } catch (err: any) {
       setError(err.message || 'Failed to fetch briefing');
     }
   };
 
-  const handleUseInLiveCall = () => {
-    // Navigate directly to live call page
-    router.push('/live-call');
+  const handleViewActionItems = () => {
+    // Navigate to action items page
+    router.push('/action-items');
   };
 
   if (sseError) {
@@ -318,48 +322,14 @@ export default function Briefing() {
                 </section>
               )}
 
-              {/* 5. Action Items */}
-              {briefing.briefing.action_items && briefing.briefing.action_items.length > 0 && (
-                <section>
-                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-red-600 pb-2">
-                    Action Items
-                  </h2>
-                  <div className="space-y-4">
-                    {['must_have', 'nice_to_have'].map((priority) => {
-                      const items = briefing.briefing.action_items.filter((item: any) => item.priority === priority);
-                      if (items.length === 0) return null;
-
-                      return (
-                        <div key={priority}>
-                          <h3 className="text-xl font-semibold text-gray-800 mb-3">
-                            {priority === 'must_have' ? 'Must Have' : 'Nice to Have'}
-                          </h3>
-                          <div className="space-y-2">
-                            {items.map((item: any, idx: number) => (
-                              <div key={idx} className={`p-3 rounded-lg border-l-4 ${priority === 'must_have' ? 'bg-red-50 border-red-500' : 'bg-blue-50 border-blue-500'}`}>
-                                <div className="flex items-start gap-3">
-                                  <span className={`px-2 py-1 text-xs font-semibold rounded ${priority === 'must_have' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
-                                    {item.category.toUpperCase()}
-                                  </span>
-                                  <p className={`flex-1 ${priority === 'must_have' ? 'text-red-900' : 'text-blue-900'}`}>{item.action}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              )}
             </div>
 
             <div className="mt-8 flex gap-4">
               <button
-                onClick={handleUseInLiveCall}
-                className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700"
+                onClick={handleViewActionItems}
+                className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700"
               >
-                Use in Live Call
+                View Action Items
               </button>
               <button
                 onClick={() => window.print()}
