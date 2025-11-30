@@ -2,30 +2,31 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
 import { api } from "@/lib/api";
 import type { UploadResponse } from "@/lib/types";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { ErrorAlert } from "@/components/ErrorAlert";
 
-interface FileUploadSectionProps {
+interface FileUploadCardProps {
   id: string;
   title: string;
   description: string;
   required: boolean;
   file: File | null;
   onFileChange: (file: File | null) => void;
-  borderColor: string;
+  icon: React.ReactNode;
 }
 
-function FileUploadSection({
+function FileUploadCard({
   id,
   title,
   description,
   required,
   file,
   onFileChange,
-  borderColor,
-}: FileUploadSectionProps) {
+  icon,
+}: FileUploadCardProps) {
   const [dragActive, setDragActive] = useState(false);
 
   const handleDrag = (e: React.DragEvent) => {
@@ -58,24 +59,37 @@ function FileUploadSection({
   };
 
   return (
-    <div className={`bg-white rounded-lg shadow-lg p-6 mb-6 border-2 ${borderColor}`}>
-      <div className="flex items-center gap-2 mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-        <span
-          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-            required
-              ? "bg-red-100 text-red-800"
-              : "bg-gray-100 text-gray-700"
-          }`}
-        >
-          {required ? "Required" : "Optional"}
-        </span>
+    <div className="flex-1 bg-white/10 backdrop-blur-xl border border-white/20 rounded-ds-xl p-6 flex flex-col">
+      {/* Header */}
+      <div className="flex items-start gap-4 mb-4">
+        <div className="w-12 h-12 bg-white/10 rounded-ds-md flex items-center justify-center text-white/80">
+          {icon}
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="text-lg font-semibold text-white">{title}</h3>
+            <span
+              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                required
+                  ? "bg-ds-accent-2/30 text-ds-accent-2"
+                  : "bg-white/10 text-white/50"
+              }`}
+            >
+              {required ? "Required" : "Optional"}
+            </span>
+          </div>
+          <p className="text-sm text-white/60">{description}</p>
+        </div>
       </div>
-      <p className="text-sm text-gray-600 mb-4">{description}</p>
 
+      {/* Drop Zone */}
       <div
-        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-          dragActive ? "border-blue-500 bg-blue-50" : "border-gray-300"
+        className={`flex-1 border-2 border-dashed rounded-ds-lg p-6 text-center transition-all flex flex-col items-center justify-center min-h-[180px] ${
+          dragActive
+            ? "border-ds-accent-2 bg-ds-accent-2/10"
+            : file
+            ? "border-green-400/50 bg-green-400/5"
+            : "border-white/20 hover:border-white/40"
         }`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
@@ -91,66 +105,50 @@ function FileUploadSection({
         />
 
         {file ? (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between bg-green-50 p-3 rounded border border-green-200">
-              <div className="flex items-center gap-3">
-                <svg
-                  className="h-6 w-6 text-green-500"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <span className="font-medium text-green-900">{file.name}</span>
-              </div>
-              <button
-                onClick={() => onFileChange(null)}
-                className="text-red-500 hover:text-red-700 text-xl font-bold"
-              >
-                ×
-              </button>
+          <div className="space-y-3 w-full">
+            <div className="flex items-center justify-center gap-2 text-green-400">
+              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
             </div>
-            <div>
+            <p className="font-medium text-white truncate px-2">{file.name}</p>
+            <div className="flex items-center justify-center gap-4">
               <label
                 htmlFor={id}
-                className="cursor-pointer text-blue-600 hover:underline text-sm"
+                className="cursor-pointer text-ds-accent-2 hover:underline text-sm"
               >
-                Replace file
+                Replace
               </label>
+              <button
+                onClick={() => onFileChange(null)}
+                className="text-red-400 hover:text-red-300 text-sm"
+              >
+                Remove
+              </button>
             </div>
           </div>
         ) : (
           <div className="text-center">
             <svg
-              className="mx-auto h-12 w-12 text-gray-400"
+              className="mx-auto h-10 w-10 text-white/30 mb-3"
               stroke="currentColor"
               fill="none"
-              viewBox="0 0 48 48"
-              aria-hidden="true"
+              viewBox="0 0 24 24"
             >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 14v20c0 4.418 7.163 8 16 8 1.381 0 2.721-.087 4-.252M8 14c0 4.418 7.163 8 16 8s16-3.582 16-8M8 14c0-4.418 7.163-8 16-8s16 3.582 16 8m0 0v14m0-4c0 4.418-7.163 8-16 8S8 28.418 8 24m32 10v6m0 0v6m0-6h6m-6 0h-6"
+                strokeWidth={1.5}
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
               />
             </svg>
-            <div className="mt-4 flex text-sm text-gray-600 justify-center">
-              <label
-                htmlFor={id}
-                className="relative cursor-pointer rounded-md bg-white font-medium text-blue-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2 hover:text-blue-500"
-              >
-                <span>Upload file</span>
-              </label>
-              <p className="pl-1">or drag and drop</p>
-            </div>
-            <p className="text-xs text-gray-500">PDF up to 10MB</p>
+            <label
+              htmlFor={id}
+              className="cursor-pointer text-white font-medium hover:text-ds-accent-2 transition-colors"
+            >
+              Upload PDF
+            </label>
+            <p className="text-white/40 text-sm mt-1">or drag and drop</p>
           </div>
         )}
       </div>
@@ -186,91 +184,137 @@ export default function DocumentUpload() {
         alternativesFile
       );
 
-      // Store document_id and extracted_data in sessionStorage for next page
       sessionStorage.setItem("documentId", response.document_id);
-      sessionStorage.setItem(
-        "extractedData",
-        JSON.stringify(response.extracted_data)
-      );
+      sessionStorage.setItem("extractedData", JSON.stringify(response.extracted_data));
 
       router.push("/negotiation-input");
-    } catch (err: any) {
-      setError(err.message || "Failed to upload documents");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to upload documents";
+      setError(errorMessage);
     } finally {
       setUploading(false);
     }
   };
 
-  const handleSkip = () => {
-    sessionStorage.removeItem("documentId");
-    sessionStorage.removeItem("extractedData");
-    router.push("/negotiation-input");
-  };
-
   const canUpload = supplierOfferFile && initialRequestFile;
 
   return (
-    <main className="min-h-screen bg-gray-50 py-12">
-      <div className="container mx-auto px-4 max-w-2xl">
-        <h1 className="text-4xl font-bold mb-8 text-center">
-          Upload Documents
-        </h1>
+    <main className="min-h-screen bg-[#0F1A3D] relative overflow-hidden">
+      {/* Background decorative elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-[600px] h-[600px] bg-ds-accent-1/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 -left-40 w-[500px] h-[500px] bg-ds-accent-2/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 right-1/4 w-72 h-72 bg-ds-accent-1/15 rounded-full blur-2xl" />
+      </div>
 
+      {/* Header */}
+      <header className="relative z-10 p-6">
+        <Link href="/" className="inline-flex items-center gap-3 group">
+          <Image
+            src="/icon-logo.png"
+            alt="Accordia"
+            width={40}
+            height={40}
+            className="h-10 w-auto object-contain"
+            unoptimized
+          />
+          <span className="text-white/60 group-hover:text-white transition-colors">← Back to Home</span>
+        </Link>
+      </header>
+
+      {/* Content */}
+      <div className="relative z-10 container mx-auto px-6 pb-12">
+        {/* Title */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+            Upload Your Documents
+          </h1>
+          <p className="text-white/60 text-lg max-w-2xl mx-auto">
+            Provide your negotiation documents for AI-powered analysis and strategic briefing generation.
+          </p>
+        </div>
+
+        {/* Error Alert */}
         {error && (
-          <ErrorAlert message={error} onDismiss={() => setError(null)} />
+          <div className="max-w-4xl mx-auto mb-8">
+            <div className="bg-red-500/20 border border-red-500/30 rounded-ds-lg p-4 flex items-center gap-3">
+              <svg className="w-5 h-5 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-red-300 text-sm flex-1">{error}</p>
+              <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
         )}
 
-        {/* 1. Supplier Offer (Required) */}
-        <FileUploadSection
-          id="supplier-offer-upload"
-          title="Supplier Offer"
-          description="The supplier's proposal with pricing. This price becomes your maximum price ceiling for negotiation."
-          required={true}
-          file={supplierOfferFile}
-          onFileChange={setSupplierOfferFile}
-          borderColor="border-blue-300"
-        />
+        {/* Upload Cards - Horizontal Layout */}
+        <div className="flex flex-col lg:flex-row gap-6 max-w-6xl mx-auto mb-12">
+          {/* Supplier Offer */}
+          <FileUploadCard
+            id="supplier-offer-upload"
+            title="Supplier Offer"
+            description="The supplier's proposal with pricing details"
+            required={true}
+            file={supplierOfferFile}
+            onFileChange={setSupplierOfferFile}
+            icon={
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            }
+          />
 
-        {/* 2. Initial Request (Required) */}
-        <FileUploadSection
-          id="initial-request-upload"
-          title="Initial Request"
-          description="Your company's original request document describing what you're looking for, requirements, and specifications."
-          required={true}
-          file={initialRequestFile}
-          onFileChange={setInitialRequestFile}
-          borderColor="border-green-300"
-        />
+          {/* Initial Request */}
+          <FileUploadCard
+            id="initial-request-upload"
+            title="Initial Request"
+            description="Your company's original requirements document"
+            required={true}
+            file={initialRequestFile}
+            onFileChange={setInitialRequestFile}
+            icon={
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+              </svg>
+            }
+          />
 
-        {/* 3. Alternative Suppliers (Optional) */}
-        <FileUploadSection
-          id="alternatives-upload"
-          title="Alternative Suppliers"
-          description="List of potential alternative suppliers for comparison. Helps strengthen your negotiation position."
-          required={false}
-          file={alternativesFile}
-          onFileChange={setAlternativesFile}
-          borderColor="border-gray-200"
-        />
+          {/* Alternative Suppliers */}
+          <FileUploadCard
+            id="alternatives-upload"
+            title="Alternatives"
+            description="List of potential alternative suppliers"
+            required={false}
+            file={alternativesFile}
+            onFileChange={setAlternativesFile}
+            icon={
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+            }
+          />
+        </div>
 
-        <div className="flex gap-4">
+        {/* Actions */}
+        <div className="flex flex-col items-center gap-4">
           <button
             onClick={handleUpload}
             disabled={!canUpload || uploading}
-            className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="cta-negotiate inline-flex items-center gap-3 px-10 py-5 text-lg font-semibold text-[#0F1A3D] bg-white rounded-ds-xl disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-1 transition-transform duration-300"
           >
             {uploading && <LoadingSpinner size="sm" />}
-            {uploading ? "Uploading..." : "Upload & Continue"}
+            {uploading ? "Analyzing..." : "Continue with Analysis"}
+            {!uploading && (
+              <svg className="arrow-icon w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            )}
           </button>
-        </div>
 
-        <div className="text-center mt-6">
-          <button
-            onClick={handleSkip}
-            className="text-gray-600 hover:text-gray-800 underline"
-          >
-            Skip - Enter details manually
-          </button>
         </div>
       </div>
     </main>
