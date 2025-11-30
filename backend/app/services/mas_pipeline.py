@@ -97,6 +97,11 @@ async def run_mas_pipeline(
 
         # Save final result (parallel agent outputs)
         logger.info(f"[PIPELINE] Storing briefing in briefings_store for job_id={job_id}")
+
+        # Extract action items array from ActionItemsList wrapper
+        action_items_data = final_state.get("action_items")
+        action_items_array = action_items_data.get("items") if action_items_data else []
+
         briefings_store[job_id] = {
             "status": "completed",
             "briefing": {
@@ -104,7 +109,7 @@ async def run_mas_pipeline(
                 "market_analysis": final_state.get("market_analysis"),
                 "offer_analysis": final_state.get("offer_analysis"),
                 "outcome_assessment": final_state.get("outcome_assessment"),
-                "action_items": final_state.get("action_items"),
+                "action_items": action_items_array,  # Extract items array for frontend
             },
             "parsed_input": final_state.get("parsed_input"),
             "vector_db_id": None,  # Will be set when stored to Pinecone

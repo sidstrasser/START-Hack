@@ -129,8 +129,15 @@ Each action item should:
 - Address gaps between request and offer
 - Be prioritized by impact
 - Focus on preparing for negotiation
+- Be categorized as one of: PRICE, TERMS, TIMELINE, or SCOPE
 
-Number them 1-5 and make them concrete."""),
+The top 2 most impactful actions should be marked as RECOMMENDED.
+
+Format each item exactly as:
+[CATEGORY] Action description here
+
+Where CATEGORY is one of: PRICE, TERMS, TIMELINE, SCOPE
+Mark the top 2 with (RECOMMENDED) at the end."""),
             ("user", """Supplier: {supplier_name}
 Product Type: {product_type}
 
@@ -149,11 +156,18 @@ Best Practices Research:
 {research_content}
 
 Generate EXACTLY 5 action items in this format:
-1. [Specific actionable item]
-2. [Specific actionable item]
-3. [Specific actionable item]
-4. [Specific actionable item]
-5. [Specific actionable item]""")
+1. [CATEGORY] Action description here (RECOMMENDED if top 2)
+2. [CATEGORY] Action description here (RECOMMENDED if top 2)
+3. [CATEGORY] Action description here
+4. [CATEGORY] Action description here
+5. [CATEGORY] Action description here
+
+Example:
+1. [PRICE] Request detailed breakdown of all costs and fees (RECOMMENDED)
+2. [TERMS] Negotiate payment terms from 30 to 60 days net (RECOMMENDED)
+3. [TIMELINE] Clarify delivery schedule and milestone dates
+4. [SCOPE] Define exact features included in base price
+5. [TERMS] Add termination clause with 90-day notice period""")
         ])
 
         llm = get_llm(temperature=0.5)
@@ -173,31 +187,63 @@ Generate EXACTLY 5 action items in this format:
         # Parse GPT response
         response_text = response.content
 
-        # Extract numbered items
+        # Extract numbered items with category and recommended flag
         action_items_list = []
         lines = response_text.split("\n")
 
+        import re
         for line in lines:
             line = line.strip()
             # Look for numbered items (1., 2., etc.)
             if line and len(line) > 2:
                 if line[0].isdigit() and (line[1] == '.' or line[1] == ')'):
-                    # Extract the description after the number
-                    description = line[2:].strip()
-                    if description:
-                        item_id = len(action_items_list) + 1
-                        action_items_list.append(ActionItem(id=item_id, description=description))
+                    # Extract the content after the number
+                    content = line[2:].strip()
 
-        # Ensure exactly 5 items
+                    # Parse format: [CATEGORY] Action description (RECOMMENDED)
+                    # Extract category using regex
+                    category_match = re.match(r'\[([A-Z]+)\]\s*(.*)', content)
+                    if category_match:
+                        category_raw = category_match.group(1).lower()
+                        remaining = category_match.group(2).strip()
+
+                        # Check if it's recommended
+                        is_recommended = "(recommended)" in remaining.lower()
+
+                        # Remove (RECOMMENDED) marker from action text
+                        action_text = re.sub(r'\(recommended\)', '', remaining, flags=re.IGNORECASE).strip()
+
+                        # Validate category
+                        if category_raw in ["price", "terms", "timeline", "scope"]:
+                            action_items_list.append(ActionItem(
+                                category=category_raw,
+                                action=action_text,
+                                recommended=is_recommended
+                            ))
+
+        # Ensure exactly 5 items (fallback)
         while len(action_items_list) < 5:
-            item_id = len(action_items_list) + 1
+            # Add generic fallback items if parsing failed
+            fallback_categories = ["price", "terms", "timeline", "scope", "terms"]
+            category = fallback_categories[len(action_items_list)]
             action_items_list.append(ActionItem(
-                id=item_id,
-                description=f"Review and address gap #{item_id} in the offer"
+                category=category,
+                action=f"Review and address {category} requirements",
+                recommended=False
             ))
 
         # Take only first 5 if we got more
         action_items_list = action_items_list[:5]
+
+        # Ensure exactly 2 items are marked as recommended
+        recommended_count = sum(1 for item in action_items_list if item.recommended)
+        if recommended_count != 2:
+            # Reset all to False
+            for item in action_items_list:
+                item.recommended = False
+            # Mark first 2 as recommended
+            action_items_list[0].recommended = True
+            action_items_list[1].recommended = True
 
         # Build ActionItemsList
         action_items = ActionItemsList(items=action_items_list)
