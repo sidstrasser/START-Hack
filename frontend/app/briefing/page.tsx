@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useSSE } from '@/lib/hooks/useSSE';
-import type { ProgressEvent, BriefingResult } from '@/lib/types';
+import type { ProgressEvent, BriefingResult, ActionItem } from '@/lib/types';
 import { ProgressBar } from '@/components/ProgressBar';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorAlert } from '@/components/ErrorAlert';
+import StepIndicator from '@/components/StepIndicator';
 
 export default function Briefing() {
   const router = useRouter();
@@ -77,10 +78,6 @@ export default function Briefing() {
   };
 
   const handleViewActionItems = () => {
-    // Navigate to action items page
-    router.push('/action-items');
-  const handleUseInLiveCall = () => {
-    // Navigate to action items selection page
     router.push('/action-items');
   };
 
@@ -98,9 +95,38 @@ export default function Briefing() {
   const isComplete = briefing !== null;
   const currentProgress = latestProgress?.progress || 0;
 
+  // Step indicator data
+  const steps = [
+    { id: 1, name: 'Document Upload', path: '/document-upload', completed: true, current: false },
+    { 
+      id: 2, 
+      name: 'Briefing', 
+      path: '/briefing', 
+      completed: isComplete, 
+      current: !isComplete 
+    },
+    { 
+      id: 3, 
+      name: 'Action Items', 
+      path: '/action-items', 
+      completed: false, 
+      current: false 
+    },
+    { 
+      id: 4, 
+      name: 'Live Call', 
+      path: '/live-call', 
+      completed: false, 
+      current: false 
+    },
+  ];
+
   return (
     <main className="min-h-screen bg-gray-50 py-12">
       <div className="container mx-auto px-4 max-w-4xl">
+        {/* Step Indicator */}
+        <StepIndicator steps={steps} />
+
         <h1 className="text-4xl font-bold mb-8 text-center">
           {isComplete ? 'Briefing Ready' : 'Generating Briefing'}
         </h1>
@@ -385,10 +411,11 @@ export default function Briefing() {
               )}
             </div>
 
-            <div className="mt-8 flex gap-4">
+            {/* Action Buttons */}
+            <div className="mt-8 flex gap-4 border-t pt-6">
               <button
                 onClick={handleViewActionItems}
-                className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700"
+                className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700"
               >
                 Select Action Items
               </button>
