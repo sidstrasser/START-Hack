@@ -72,8 +72,11 @@ async def market_analysis_node(state: NegotiationState, config: RunnableConfig) 
         product_type = parsed_input["form_data"]["product_type"]
         offer_price = parsed_input["form_data"]["offer_price"]
         alternatives = parsed_input.get("alternatives", [])
+        alternatives_pdf_text = parsed_input.get("alternatives_text")  # Full PDF text for context
 
         logger.info(f"[MARKET_ANALYSIS] Analyzing {len(alternatives)} alternatives")
+        if alternatives_pdf_text:
+            logger.info(f"[MARKET_ANALYSIS] Full alternatives PDF text available ({len(alternatives_pdf_text)} chars)")
 
         # ========================================================================
         # STEP 1: PERPLEXITY RESEARCH
@@ -137,10 +140,15 @@ async def market_analysis_node(state: NegotiationState, config: RunnableConfig) 
             if result.get("success"):
                 research_context += f"\n\n{key.upper()}:\n{result['content'][:500]}"
 
-        # Build alternatives context
-        alternatives_text = "\n".join([f"- {alt['name']}: {alt.get('description', 'N/A')}" for alt in alternatives])
-        if not alternatives_text:
-            alternatives_text = "No alternatives provided"
+        # Build alternatives context - use full PDF text if available, otherwise use structured list
+        if alternatives_pdf_text:
+            alternatives_context = f"Full alternatives document:\n{alternatives_pdf_text[:2000]}"  # Use first 2000 chars
+        else:
+            alternatives_context = "Structured alternatives list:\n" + "\n".join([f"- {alt['name']}: {alt.get('description', 'N/A')}" for alt in alternatives])
+            if not alternatives_context.strip().endswith("list:"):
+                pass  # Has alternatives
+            else:
+                alternatives_context = "No alternatives provided"
 
         # Create analysis prompt
         analysis_prompt = ChatPromptTemplate.from_messages([
@@ -156,7 +164,7 @@ Product Type: {product_type}
 Offer Price: {offer_price}
 
 Alternatives:
-{alternatives_text}
+{alternatives_context}
 
 Market Research:
 {research_context}
@@ -176,7 +184,7 @@ KEY RISK 3: [specific risk]""")
             "supplier_name": supplier_name,
             "product_type": product_type,
             "offer_price": offer_price,
-            "alternatives_text": alternatives_text,
+            "alternatives_context": alternatives_context,
             "research_context": research_context
         })
 

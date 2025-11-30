@@ -48,9 +48,13 @@ class ParsedInput(BaseModel):
 
     supplier_offer_text: str = Field(description="Full text from supplier offer PDF (contains pricing = max price)")
     initial_request_text: str = Field(description="Full text from initial request PDF (what we're looking for)")
+    alternatives_text: Optional[str] = Field(
+        default=None,
+        description="Full text from alternatives PDF (raw text for agent analysis)"
+    )
     alternatives: List[AlternativeSupplier] = Field(
         default_factory=list,
-        description="List of alternative suppliers extracted from PDF"
+        description="List of alternative suppliers extracted from PDF (structured data)"
     )
     form_data: FormData = Field(description="User-provided structured form data")
 
