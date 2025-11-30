@@ -32,17 +32,20 @@ const GoalIcon = () => (
 
 export default function MetricsPanel({ metrics, onShowTranscripts }: MetricsPanelProps) {
   return (
-    <div className="px-4 py-3 border-b border-gray-200 bg-white">
-      <div className="flex items-center justify-between mb-2.5">
-        <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Metrics</h2>
+    <div className="px-4 py-4 border-b border-white/10 bg-white/5 backdrop-blur-sm">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-xs font-semibold text-white/50 uppercase tracking-wider">Live Metrics</h2>
         <button
           onClick={onShowTranscripts}
-          className="px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded transition-colors"
+          className="px-3 py-1.5 text-xs font-medium text-white/60 hover:text-white hover:bg-white/10 rounded-ds-md transition-colors flex items-center gap-1"
         >
-          Transcript →
+          Transcript
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
         </button>
       </div>
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         <Metric
           label="Value"
           value={`${metrics.value}%`}
@@ -68,4 +71,3 @@ export default function MetricsPanel({ metrics, onShowTranscripts }: MetricsPane
     </div>
   );
 }
-

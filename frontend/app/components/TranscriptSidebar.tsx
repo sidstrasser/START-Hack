@@ -13,16 +13,16 @@ interface TranscriptSidebarProps {
 
 export default function TranscriptSidebar({ transcripts, onBack }: TranscriptSidebarProps) {
   return (
-    <div className="h-full flex flex-col bg-gray-50">
+    <div className="h-full flex flex-col bg-[#0F1A3D]">
       {/* Header with back button */}
-      <div className="p-4 border-b border-gray-200 bg-white flex items-center gap-3">
+      <div className="p-4 border-b border-white/10 bg-white/5 backdrop-blur-sm flex items-center gap-3">
         <button
           onClick={onBack}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          className="p-2 hover:bg-white/10 rounded-ds-md transition-colors"
           aria-label="Back to metrics"
         >
           <svg
-            className="w-5 h-5 text-gray-600"
+            className="w-5 h-5 text-white/70"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -35,13 +35,13 @@ export default function TranscriptSidebar({ transcripts, onBack }: TranscriptSid
             />
           </svg>
         </button>
-        <h2 className="text-sm font-semibold text-gray-800">Conversation</h2>
+        <h2 className="text-sm font-semibold text-white">Conversation</h2>
       </div>
 
       {/* Chat bubbles */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {transcripts.length === 0 ? (
-          <div className="text-center text-gray-400 text-sm py-8">
+          <div className="text-center text-white/40 text-sm py-8">
             <svg
               className="w-12 h-12 mx-auto mb-2 opacity-50"
               fill="none"
@@ -69,30 +69,30 @@ export default function TranscriptSidebar({ transcripts, onBack }: TranscriptSid
             // WhatsApp-style: Speaker 0 and 2 on left, Speaker 1 on right
             const isRightSide = isSpeaker1;
             
-            // Different colors for each speaker
+            // Different colors for each speaker - updated for dark theme
             const bubbleColor = isSpeaker0
-              ? 'bg-gray-100 text-gray-900' // Speaker 0 - light grey (left)
+              ? 'bg-white/10 text-white' // Speaker 0 - glass (left)
               : isSpeaker1
-              ? 'bg-blue-500 text-white' // Speaker 1 - blue (right, like WhatsApp)
+              ? 'bg-ds-accent-2 text-white' // Speaker 1 - accent (right)
               : isSpeaker2
-              ? 'bg-purple-100 text-purple-900' // Speaker 2 - purple (left)
-              : 'bg-gray-200 text-gray-800'; // Unknown - darker grey
+              ? 'bg-ds-accent-1/20 text-white' // Speaker 2 - accent alt (left)
+              : 'bg-white/5 text-white/80'; // Unknown - subtle
             
             // Rounded corners with tail effect
             const roundedCorners = isRightSide
-              ? 'rounded-2xl rounded-tr-none' // Right side: tail on top-right
-              : 'rounded-2xl rounded-tl-none'; // Left side: tail on top-left
+              ? 'rounded-ds-lg rounded-tr-none' // Right side: tail on top-right
+              : 'rounded-ds-lg rounded-tl-none'; // Left side: tail on top-left
             
             return (
               <div
                 key={index}
                 className={`flex ${isRightSide ? 'justify-end' : 'justify-start'} mb-1`}
               >
-                <div className={`max-w-[75%] ${roundedCorners} px-4 py-2.5 ${bubbleColor} shadow-sm relative`}>
+                <div className={`max-w-[75%] ${roundedCorners} px-4 py-2.5 ${bubbleColor} border border-white/10 relative`}>
                   {/* Tail/pointer using SVG for better shape */}
                   {isRightSide ? (
                     <svg
-                      className="absolute -right-2 top-0 w-3 h-4 text-blue-500"
+                      className="absolute -right-2 top-0 w-3 h-4 text-ds-accent-2"
                       viewBox="0 0 8 13"
                       fill="currentColor"
                     >
@@ -100,17 +100,17 @@ export default function TranscriptSidebar({ transcripts, onBack }: TranscriptSid
                     </svg>
                   ) : isSpeaker2 ? (
                     <svg
-                      className="absolute -left-2 top-0 w-3 h-4 text-purple-100"
+                      className="absolute -left-2 top-0 w-3 h-4"
                       viewBox="0 0 8 13"
-                      fill="currentColor"
+                      fill="rgba(59, 18, 206, 0.2)"
                     >
                       <path d="M1.533 3.568L8 12.193V1H2.812C1.042 1 .474 2.156 1.533 3.568z"/>
                     </svg>
                   ) : (
                     <svg
-                      className="absolute -left-2 top-0 w-3 h-4 text-gray-100"
+                      className="absolute -left-2 top-0 w-3 h-4"
                       viewBox="0 0 8 13"
-                      fill="currentColor"
+                      fill="rgba(255, 255, 255, 0.1)"
                     >
                       <path d="M1.533 3.568L8 12.193V1H2.812C1.042 1 .474 2.156 1.533 3.568z"/>
                     </svg>
@@ -121,13 +121,13 @@ export default function TranscriptSidebar({ transcripts, onBack }: TranscriptSid
                       {transcript.text}
                     </p>
                     <div className={`flex items-center gap-1 mt-1.5 ${isRightSide ? 'justify-end' : 'justify-start'}`}>
-                      <span className={`text-xs ${isRightSide ? 'text-blue-50' : 'text-gray-600'}`}>
+                      <span className={`text-xs ${isRightSide ? 'text-white/70' : 'text-white/40'}`}>
                         {transcript.timestamp 
                           ? new Date(transcript.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                           : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                       {isRightSide && (
-                        <svg className="w-3 h-3 text-blue-50" fill="currentColor" viewBox="0 0 16 15">
+                        <svg className="w-3 h-3 text-white/70" fill="currentColor" viewBox="0 0 16 15">
                           <path d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-.358-.325a.319.319 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-8.048a.366.366 0 0 0-.063-.51zm-4.1 0l-.478-.372a.365.365 0 0 0-.51.063L4.566 9.879a.32.32 0 0 1-.484.033L1.891 7.769a.366.366 0 0 0-.515.006l-.423.433a.364.364 0 0 0 .006.514l3.258 3.185c.143.14.361.125.484-.033l6.272-8.048a.365.365 0 0 0-.063-.51z"/>
                         </svg>
                       )}
@@ -142,4 +142,3 @@ export default function TranscriptSidebar({ transcripts, onBack }: TranscriptSid
     </div>
   );
 }
-

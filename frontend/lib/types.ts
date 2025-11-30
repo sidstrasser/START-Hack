@@ -117,7 +117,7 @@ export interface BriefingData {
   market_analysis: MarketAnalysis;
   offer_analysis: OfferAnalysis;
   outcome_assessment: OutcomeAssessment;
-  action_items: ActionItemsList;
+  action_items: ActionItem[] | ActionItemsList;  // API returns array directly
 }
 
 export interface BriefingResult {

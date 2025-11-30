@@ -114,7 +114,7 @@ export default function LiveCall() {
         return [...prev, { id, message, type, emotion }];
       });
     } else {
-      const id = ++toastIdRef.current;
+    const id = ++toastIdRef.current;
       setToasts(prev => [...prev, { id, message, type, emotion }]);
     }
   }, []);
@@ -244,11 +244,48 @@ export default function LiveCall() {
     };
   }, [vectorDbId, fetchMetrics]);
 
-  // Fetch action items completion status from backend
-  const fetchActionItemsStatus = useCallback(async () => {
-    if (!vectorDbId || transcripts.length === 0) return;
+  // Commit transcripts and return the updated list
+  const commitTranscripts = useCallback(async (): Promise<typeof transcripts> => {
+    if (!sessionIdRef.current) return transcripts;
+    
+    try {
+      const response = await fetch(`${BACKEND_API_URL}/api/elevenlabs/commit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: sessionIdRef.current }),
+      });
 
-    console.log("[ActionItems] Checking completion status...");
+      if (response.ok) {
+        const data = await response.json();
+        if (data.transcripts?.length > 0) {
+          const newTranscripts = data.transcripts.map((t: { text: string; speaker_id?: string; timestamp?: number }) => ({
+            text: t.text,
+            speaker_id: t.speaker_id,
+            timestamp: t.timestamp ? (t.timestamp < 10000000000 ? t.timestamp * 1000 : t.timestamp) : Date.now()
+          }));
+          
+          // Update state and return new list
+          setTranscripts(prev => {
+            const updated = [...prev, ...newTranscripts];
+            return updated;
+          });
+          
+          // Return immediately with new transcripts appended
+          return [...transcripts, ...newTranscripts];
+        }
+      }
+    } catch (err) {
+      console.error("[Commit] Error:", err);
+    }
+    
+    return transcripts;
+  }, [transcripts]);
+
+  // Fetch action items completion status from backend
+  const fetchActionItemsStatus = useCallback(async (currentTranscripts: typeof transcripts) => {
+    if (!vectorDbId) return;
+
+    console.log("[ActionItems] Checking completion status...", { transcriptsCount: currentTranscripts.length });
 
     // Get already completed IDs (these should not be un-completed)
     const alreadyCompletedIds = actionPoints
@@ -261,7 +298,7 @@ export default function LiveCall() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           vectorDbId,
-          messages: transcripts,
+          messages: currentTranscripts,
           actionItems: actionPoints,
           alreadyCompletedIds
         }),
@@ -294,28 +331,35 @@ export default function LiveCall() {
     } catch (err) {
       console.error("[ActionItems] Error:", err);
     }
-  }, [vectorDbId, transcripts, actionPoints, showToast]);
+  }, [vectorDbId, actionPoints, showToast]);
 
-  // Start action items polling (every 20 seconds, same as metrics)
+  // Combined: Commit transcripts first, then check action items
+  const commitAndCheckActionItems = useCallback(async () => {
+    console.log("[ActionItems] Committing transcripts and checking action items...");
+    const updatedTranscripts = await commitTranscripts();
+    await fetchActionItemsStatus(updatedTranscripts);
+  }, [commitTranscripts, fetchActionItemsStatus]);
+
+  // Start action items polling (every 10 seconds, commits first)
   useEffect(() => {
     if (!vectorDbId) return;
 
-    console.log("[ActionItems] Starting polling interval (20s)");
+    console.log("[ActionItems] Starting polling interval (10s with commit)");
     
     // Initial fetch after a short delay
-    const initialTimeout = setTimeout(fetchActionItemsStatus, 2000);
+    const initialTimeout = setTimeout(commitAndCheckActionItems, 2000);
     
-    // Then poll every 20 seconds
-    actionItemsPollIntervalRef.current = setInterval(fetchActionItemsStatus, 20000);
+    // Then poll every 10 seconds (commit + check)
+    actionItemsPollIntervalRef.current = setInterval(commitAndCheckActionItems, 10000);
 
     return () => {
       clearTimeout(initialTimeout);
       if (actionItemsPollIntervalRef.current) {
         clearInterval(actionItemsPollIntervalRef.current);
         actionItemsPollIntervalRef.current = null;
-    }
-  };
-  }, [vectorDbId, fetchActionItemsStatus]);
+      }
+    };
+  }, [vectorDbId, commitAndCheckActionItems]);
 
   // Recording functions
   const startRecording = async () => {
@@ -365,7 +409,7 @@ export default function LiveCall() {
       source.connect(processor);
       processor.connect(audioContext.destination);
 
-      // Start transcript polling
+      // Start transcript polling (keep-alive)
       transcriptPollIntervalRef.current = setInterval(async () => {
         if (!sessionIdRef.current) return;
         try {
@@ -422,25 +466,7 @@ export default function LiveCall() {
   // Commit transcript and execute action
   const handleActionButtonClick = async (action: () => void) => {
     if (sessionIdRef.current && isRecording) {
-      try {
-        const response = await fetch(`${BACKEND_API_URL}/api/elevenlabs/commit`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId: sessionIdRef.current }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.transcripts?.length > 0) {
-            const newTranscripts = data.transcripts.map((t: any) => ({
-              text: t.text,
-              speaker_id: t.speaker_id,
-              timestamp: t.timestamp ? (t.timestamp < 10000000000 ? t.timestamp * 1000 : t.timestamp) : Date.now()
-            }));
-            setTranscripts(prev => [...prev, ...newTranscripts]);
-          }
-        }
-      } catch { /* silent */ }
+      await commitTranscripts();
     }
     action();
   };
@@ -529,8 +555,8 @@ export default function LiveCall() {
               console.error('[LiveCall] Video play error:', err);
             }
           });
-          setIsLoading(false);
-        }
+              setIsLoading(false);
+              }
             } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to access camera.");
         setIsLoading(false);
@@ -681,7 +707,7 @@ export default function LiveCall() {
   }, []);
 
   return (
-    <main className="h-screen flex overflow-hidden">
+    <main className="h-screen flex overflow-hidden bg-[#0F1A3D]">
       {/* Left side - Video (2/3 of screen) */}
       <VideoSection
         videoRef={videoRef}
@@ -701,9 +727,13 @@ export default function LiveCall() {
       />
 
       {/* Right side - Sidebar (1/3 of screen) */}
-      <div className="w-1/3 bg-gray-50 flex flex-col border-l border-gray-200 relative overflow-hidden">
+      <div className="w-1/3 bg-[#0F1A3D]/95 backdrop-blur-xl flex flex-col border-l border-white/10 relative overflow-hidden">
+        {/* Decorative gradient blurs */}
+        <div className="absolute -top-20 -right-20 w-60 h-60 bg-ds-accent-1/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-20 -left-10 w-40 h-40 bg-ds-accent-2/15 rounded-full blur-2xl pointer-events-none" />
+        
         {/* Transcripts View */}
-        <div className={`absolute inset-0 transition-transform duration-300 ease-in-out ${
+        <div className={`absolute inset-0 z-10 transition-transform duration-300 ease-in-out ${
           showTranscripts ? 'translate-x-0' : 'translate-x-full'
         }`}>
           <TranscriptSidebar 
@@ -716,7 +746,7 @@ export default function LiveCall() {
         <div className={`absolute inset-0 pb-16 transition-transform duration-300 ease-in-out ${
           showTranscripts ? '-translate-x-full' : 'translate-x-0'
         }`}>
-          <div className="h-full flex flex-col overflow-hidden">
+          <div className="h-full flex flex-col overflow-hidden relative z-10">
             {/* Fixed header sections */}
             <div className="flex-shrink-0">
               <MetricsPanel 
@@ -766,12 +796,12 @@ export default function LiveCall() {
 
       {/* Emotion model loading indicator (dev only) */}
       {isDev && isEmotionModelLoading && (
-        <div className="fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg text-sm shadow-lg z-50">
+        <div className="fixed bottom-4 right-4 bg-ds-accent-2/90 backdrop-blur-xl text-white px-4 py-2 rounded-ds-lg text-sm shadow-lg z-50 border border-ds-accent-2/50">
           Loading emotion model...
         </div>
       )}
       {isDev && emotionModelError && (
-        <div className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg text-sm shadow-lg z-50">
+        <div className="fixed bottom-4 right-4 bg-red-500/90 backdrop-blur-xl text-white px-4 py-2 rounded-ds-lg text-sm shadow-lg z-50 border border-red-500/50">
           Emotion model error: {emotionModelError}
         </div>
       )}

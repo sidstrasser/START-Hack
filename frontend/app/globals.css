@@ -2,6 +2,99 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===== Design System Tokens ===== */
+:root {
+  /* Color Palette */
+  --color-text: #2D3039;
+  --color-text-muted: #5A5D66;
+  --color-text-light: #8B8E96;
+  --color-bg: #C8E6F9;
+  --color-bg-light: #E8F4FC;
+  --color-accent-1: #3B12CE;
+  --color-accent-2: #7B5BF1;
+  --color-dark-blue: #0F1A3D;
+  --color-white: #FFFFFF;
+  
+  /* Border Radii */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-bg-strong: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-border-subtle: rgba(255, 255, 255, 0.3);
+  
+  /* Shadows */
+  --shadow-soft: 0 4px 30px rgba(0, 0, 0, 0.08);
+  --shadow-medium: 0 8px 40px rgba(0, 0, 0, 0.12);
+  --shadow-accent: 0 4px 20px rgba(59, 18, 206, 0.25);
+  
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+}
+
+/* Base styles */
+body {
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+/* Glass card utility */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+}
+
+.glass-card-strong {
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-medium);
+}
+
+/* Button utilities */
+.btn-primary {
+  background: linear-gradient(135deg, var(--color-accent-1) 0%, var(--color-accent-2) 100%);
+  color: white;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-accent);
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(59, 18, 206, 0.35);
+}
+
+.btn-secondary {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  color: var(--color-text);
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: var(--glass-bg-strong);
+  border-color: var(--color-accent-2);
+}
+
 /* Custom animations for insights panel */
 @keyframes slide-in-from-bottom {
   from {
@@ -52,5 +145,75 @@
 
 .duration-300 {
   animation-duration: 0.3s;
+}
+
+/* ===== CTA Button Animations ===== */
+
+/* Shimmer sweep effect */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%) skewX(-15deg);
+  }
+  100% {
+    transform: translateX(200%) skewX(-15deg);
+  }
+}
+
+/* Subtle pulse glow */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12), 0 0 0 0 rgba(123, 91, 241, 0);
+  }
+  50% {
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12), 0 0 40px 8px rgba(123, 91, 241, 0.3);
+  }
+}
+
+/* Arrow nudge animation */
+@keyframes arrow-nudge {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+}
+
+/* CTA Button with shimmer */
+.cta-negotiate {
+  position: relative;
+  overflow: hidden;
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+.cta-negotiate::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  animation: shimmer 3s ease-in-out infinite;
+  animation-delay: 1s;
+}
+
+.cta-negotiate:hover::before {
+  animation: shimmer 0.8s ease-in-out;
+}
+
+.cta-negotiate .arrow-icon {
+  animation: arrow-nudge 2s ease-in-out infinite;
+  animation-delay: 0.5s;
+}
+
+.cta-negotiate:hover .arrow-icon {
+  animation: none;
+  transform: translateX(4px);
 }
 
