@@ -94,8 +94,8 @@ export interface OutcomeAssessment {
 
 export interface ActionItem {
   category: "price" | "terms" | "timeline" | "scope";
-  priority: "must_have" | "nice_to_have";
   action: string;
+  recommended?: boolean;
 }
 
 export interface FinalBriefing {

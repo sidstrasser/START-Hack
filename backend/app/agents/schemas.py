@@ -164,10 +164,11 @@ class ActionItem(BaseModel):
     category: Literal["price", "terms", "timeline", "scope"] = Field(
         description="Category of the action item"
     )
-    priority: Literal["must_have", "nice_to_have"] = Field(
-        description="Priority level"
-    )
     action: str = Field(description="Description of the action to take")
+    recommended: bool = Field(
+        default=False,
+        description="Whether this is a recommended action item (exactly 2 should be marked as recommended)"
+    )
 
 
 class FinalBriefing(BaseModel):

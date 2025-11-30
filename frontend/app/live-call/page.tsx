@@ -75,13 +75,7 @@ export default function LiveCall() {
   
   // Action Points
   const [showActionPoints, setShowActionPoints] = useState(true);
-  const [actionPoints, setActionPoints] = useState([
-    { id: 1, text: "Establish rapport and set agenda", completed: false },
-    { id: 2, text: "Present opening position with confidence", completed: false },
-    { id: 3, text: "Identify their key priorities and concerns", completed: false },
-    { id: 4, text: "Use leverage points when appropriate", completed: false },
-    { id: 5, text: "Secure commitment on next steps", completed: false },
-  ]);
+  const [actionPoints, setActionPoints] = useState<Array<{ id: number; text: string; completed: boolean; recommended?: boolean }>>([]);
 
   const isDev = process.env.NODE_ENV === "development";
 
@@ -130,6 +124,27 @@ export default function LiveCall() {
       }
     }
     if (storedGoals) setGoals(storedGoals);
+
+    // Load selected action items from sessionStorage (passed from action-items page)
+    const storedActionItems = sessionStorage.getItem('selectedActionItems');
+    if (storedActionItems) {
+      try {
+        const items = JSON.parse(storedActionItems);
+        if (Array.isArray(items) && items.length > 0) {
+          setActionPoints(items);
+        } else {
+          console.warn('[LiveCall] No action items found in sessionStorage');
+          setActionPoints([]);
+        }
+      } catch (e) {
+        console.error('[LiveCall] Failed to parse selected action items:', e);
+        setActionPoints([]);
+      }
+    } else {
+      // No action items selected - user should go through action-items page first
+      console.warn('[LiveCall] No action items in sessionStorage - redirecting to action-items page');
+      router.push('/action-items');
+    }
   }, []);
 
   // Toggle action point completion
