@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Negotiation Briefing Assistant",
-  description: "AI-powered negotiation briefing generator",
+  title: "Accordia - AI Negotiation Assistant",
+  description: "Where AI meets negotiation. Prepare faster. Negotiate sharper. Close smarter.",
 };
 
 export default function RootLayout({
@@ -14,14 +13,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
-        <nav className="bg-white shadow-sm border-b">
-          <div className="container mx-auto px-4 py-3">
-            <Link href="/" className="text-xl font-bold text-blue-600">
-              Accordia
-            </Link>
-          </div>
-        </nav>
+      <body className="antialiased">
         {children}
       </body>
     </html>

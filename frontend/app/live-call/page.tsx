@@ -114,7 +114,7 @@ export default function LiveCall() {
         return [...prev, { id, message, type, emotion }];
       });
     } else {
-      const id = ++toastIdRef.current;
+    const id = ++toastIdRef.current;
       setToasts(prev => [...prev, { id, message, type, emotion }]);
     }
   }, []);
@@ -529,8 +529,8 @@ export default function LiveCall() {
               console.error('[LiveCall] Video play error:', err);
             }
           });
-          setIsLoading(false);
-        }
+              setIsLoading(false);
+              }
             } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to access camera.");
         setIsLoading(false);
