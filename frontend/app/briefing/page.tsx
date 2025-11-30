@@ -76,6 +76,9 @@ export default function Briefing() {
 
   const handleViewActionItems = () => {
     router.push('/action-items');
+  const handleUseInLiveCall = () => {
+    // Navigate directly to live call page
+      router.push('/live-call');
   };
 
   if (sseError) {
