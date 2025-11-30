@@ -439,3 +439,92 @@ async def analyze_action_items(request: ActionItemsRequest):
             completedIds=request.alreadyCompletedIds,
             newlyCompletedIds=[]
         )
+
+
+# ============================================================
+# Call Summary Generation
+# ============================================================
+
+class SummaryRequest(BaseModel):
+    """Request model for summary generation."""
+    vectorDbId: str
+    transcripts: List[dict]
+    actionPoints: List[dict]  # {id, text, completed}
+    goals: Optional[str] = None
+    callDuration: int  # seconds
+
+
+class SummaryResponse(BaseModel):
+    """Response model for summary generation."""
+    summary: str
+    nextActionItems: List[str]
+
+
+@router.post("/elevenlabs/generate-summary", response_model=SummaryResponse)
+async def generate_call_summary(request: SummaryRequest):
+    """
+    Generate a call summary and next action items using AI.
+    """
+    from app.services.vector_store import generate_call_summary_and_next_actions
+    
+    try:
+        result = await generate_call_summary_and_next_actions(
+            vector_db_id=request.vectorDbId,
+            transcripts=request.transcripts,
+            action_points=request.actionPoints,
+            goals=request.goals,
+            call_duration=request.callDuration
+        )
+        
+        return SummaryResponse(
+            summary=result["summary"],
+            nextActionItems=result["nextActionItems"]
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate summary: {str(e)}"
+        )
+
+
+@router.post("/elevenlabs/stream-summary")
+async def stream_call_summary(request: SummaryRequest):
+    """
+    Stream a call summary and next action items using SSE.
+    
+    Returns chunks with markers:
+    - [SUMMARY] prefix for summary content
+    - [ACTION] prefix for each action item
+    - [DONE] when complete
+    - [ERROR] if an error occurs
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"[STREAM-SUMMARY] Received request: vectorDbId={request.vectorDbId}, transcripts={len(request.transcripts or [])}, actionPoints={len(request.actionPoints or [])}")
+    
+    from app.services.vector_store import stream_call_summary_and_next_actions
+    
+    async def generate():
+        try:
+            async for chunk in stream_call_summary_and_next_actions(
+                vector_db_id=request.vectorDbId,
+                transcripts=request.transcripts,
+                action_points=request.actionPoints,
+                goals=request.goals,
+                call_duration=request.callDuration
+            ):
+                logger.debug(f"[STREAM-SUMMARY] Yielding chunk: {chunk[:50]}...")
+                yield f"data: {chunk}\n\n"
+        except Exception as e:
+            logger.error(f"[STREAM-SUMMARY] Error in generate: {str(e)}", exc_info=True)
+            yield f"data: [ERROR]{str(e)}\n\n"
+    
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )

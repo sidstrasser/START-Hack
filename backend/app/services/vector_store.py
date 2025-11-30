@@ -678,3 +678,286 @@ Which action items (by ID) have been completed? Return ONLY a JSON array:""")
             "completedIds": already_completed_ids,
             "newlyCompletedIds": []
         }
+
+
+# ============================================================
+# Call Summary Generation
+# ============================================================
+
+SUMMARY_PROMPT = """You are analyzing a completed negotiation call. Based on the conversation transcript, briefing context, and goals, provide:
+
+1. A concise summary (2-3 paragraphs) of what happened in the call, key points discussed, agreements reached, and overall outcome.
+
+2. A list of 3-5 recommended next action items to follow up on after this call.
+
+BRIEFING CONTEXT:
+{briefing_context}
+
+NEGOTIATION GOALS:
+{goals}
+
+COMPLETED ACTION ITEMS FROM THE CALL:
+{completed_actions}
+
+CONVERSATION TRANSCRIPT:
+{conversation}
+
+CALL DURATION: {duration} minutes
+
+Respond in the following JSON format ONLY:
+{{
+  "summary": "Your summary text here...",
+  "nextActionItems": ["Action 1", "Action 2", "Action 3"]
+}}"""
+
+
+async def generate_call_summary_and_next_actions(
+    vector_db_id: str,
+    transcripts: list,
+    action_points: list,
+    goals: str = None,
+    call_duration: int = 0
+) -> dict:
+    """
+    Generate a summary and next action items for a completed call.
+    """
+    logger.info(f"[SUMMARY] Generating summary for {vector_db_id}")
+    
+    try:
+        # Get briefing context
+        briefing_context = get_briefing_context(vector_db_id, action_type="full")
+        
+        # Format conversation
+        conversation_text = "\n".join([
+            f"{t.get('speaker_id', 'Speaker')}: {t.get('text', '')}"
+            for t in transcripts
+        ]) if transcripts else "No conversation recorded."
+        
+        # Format completed actions
+        completed_actions = "\n".join([
+            f"✓ {ap.get('text', '')}" 
+            for ap in action_points 
+            if ap.get('completed', False)
+        ]) or "None completed during the call."
+        
+        # Calculate duration in minutes
+        duration_minutes = max(1, call_duration // 60)
+        
+        # Goals
+        goals_text = goals or "No specific goals defined."
+        
+        # Create prompt
+        prompt = ChatPromptTemplate.from_template(SUMMARY_PROMPT)
+        chain = prompt | get_llm()
+        
+        response = await chain.ainvoke({
+            "briefing_context": briefing_context,
+            "goals": goals_text,
+            "completed_actions": completed_actions,
+            "conversation": conversation_text,
+            "duration": duration_minutes
+        })
+        
+        content = response.content.strip()
+        logger.info(f"[SUMMARY] LLM response: {content[:500]}...")
+        
+        # Parse JSON response
+        import re
+        json_match = re.search(r'\{[\s\S]*\}', content)
+        if json_match:
+            result = json.loads(json_match.group())
+            return {
+                "summary": result.get("summary", "Unable to generate summary."),
+                "nextActionItems": result.get("nextActionItems", [])
+            }
+        else:
+            logger.warning(f"[SUMMARY] Could not parse JSON from response")
+            return {
+                "summary": content,
+                "nextActionItems": []
+            }
+            
+    except Exception as e:
+        logger.error(f"[SUMMARY] Error: {str(e)}", exc_info=True)
+        return {
+            "summary": "Unable to generate summary due to an error.",
+            "nextActionItems": ["Review the call recording", "Follow up with the other party"]
+        }
+
+
+# ============================================================
+# Streaming Call Summary Generation
+# ============================================================
+
+STREAMING_SUMMARY_PROMPT = """You are analyzing a completed negotiation call. Based on the conversation transcript, briefing context, and goals, provide:
+
+1. A concise summary (2-3 paragraphs) of what happened in the call, key points discussed, agreements reached, and overall outcome.
+
+2. After the summary, provide exactly 3 next action items. Each action item must be MAX 5 WORDS.
+
+BRIEFING CONTEXT:
+{briefing_context}
+
+NEGOTIATION GOALS:
+{goals}
+
+COMPLETED ACTION ITEMS FROM THE CALL:
+{completed_actions}
+
+CONVERSATION TRANSCRIPT:
+{conversation}
+
+CALL DURATION: {duration} minutes
+
+FORMAT INSTRUCTIONS:
+- First write the summary paragraphs
+- Then write "###TODOS###" on its own line
+- Then write exactly 3 action items as bullet points (- item)
+- Each action item: MAX 5 WORDS
+
+Example:
+The negotiation covered pricing and delivery. Both parties showed willingness to compromise.
+
+Key agreements were reached on payments. The supplier showed flexibility on timelines.
+
+###TODOS###
+- Send revised pricing proposal
+- Schedule follow-up call
+- Review contract terms"""
+
+
+async def stream_call_summary_and_next_actions(
+    vector_db_id: str,
+    transcripts: list,
+    action_points: list,
+    goals: str = None,
+    call_duration: int = 0
+):
+    """
+    Stream a summary and next action items for a completed call.
+    
+    Yields chunks with markers:
+    - [SUMMARY] prefix for summary content
+    - [ACTION] prefix for each action item
+    - [DONE] when complete
+    """
+    logger.info(f"[STREAM SUMMARY] Starting stream for {vector_db_id}")
+    
+    try:
+        # Get briefing context
+        briefing_context = get_briefing_context(vector_db_id, action_type="full")
+        
+        # Check if briefing exists
+        if briefing_context == "No briefing context available.":
+            logger.warning(f"[STREAM SUMMARY] No briefing found for {vector_db_id}, using minimal context")
+            yield "[SUMMARY]Unable to load briefing data. Generating summary from conversation only.\n\n"
+        
+        # Format conversation
+        conversation_text = "\n".join([
+            f"{t.get('speaker_id', 'Speaker')}: {t.get('text', '')}"
+            for t in transcripts
+        ]) if transcripts else "No conversation recorded."
+        
+        # Format completed actions
+        completed_actions = "\n".join([
+            f"✓ {ap.get('text', '')}" 
+            for ap in action_points 
+            if ap.get('completed', False)
+        ]) or "None completed during the call."
+        
+        # Calculate duration in minutes
+        duration_minutes = max(1, call_duration // 60)
+        
+        # Goals
+        goals_text = goals or "No specific goals defined."
+        
+        # Use streaming LLM
+        from langchain_openai import ChatOpenAI
+        
+        streaming_llm = ChatOpenAI(
+            api_key=settings.openai_api_key,
+            model="gpt-4o",
+            temperature=0.3,
+            streaming=True
+        )
+        
+        prompt = ChatPromptTemplate.from_template(STREAMING_SUMMARY_PROMPT)
+        chain = prompt | streaming_llm
+        
+        logger.info(f"[STREAM SUMMARY] Starting LLM stream...")
+        
+        # Track state for parsing
+        full_response = ""
+        in_actions_section = False
+        summary_yielded_length = 0
+        chunk_count = 0
+        
+        async for chunk in chain.astream({
+            "briefing_context": briefing_context,
+            "goals": goals_text,
+            "completed_actions": completed_actions,
+            "conversation": conversation_text,
+            "duration": duration_minutes
+        }):
+            chunk_count += 1
+            content = chunk.content
+            if chunk_count == 1:
+                logger.info(f"[STREAM SUMMARY] Received first chunk from LLM")
+            if not content:
+                continue
+            
+            full_response += content
+            
+            # Check if we've hit the actions section (using ###TODOS### marker)
+            if not in_actions_section:
+                if "###TODOS###" in full_response:
+                    in_actions_section = True
+                    # Yield any remaining summary content before the marker
+                    marker_idx = full_response.find("###TODOS###")
+                    remaining_summary = full_response[summary_yielded_length:marker_idx].strip()
+                    if remaining_summary:
+                        yield f"[SUMMARY]{remaining_summary}"
+                    summary_yielded_length = marker_idx
+                else:
+                    # Still in summary section - yield new content
+                    new_content = full_response[summary_yielded_length:]
+                    # Don't yield if it might contain start of the marker (###)
+                    if new_content and "###" not in new_content and not new_content.rstrip().endswith("#"):
+                        yield f"[SUMMARY]{new_content}"
+                        summary_yielded_length = len(full_response)
+        
+        logger.info(f"[STREAM SUMMARY] LLM stream completed. Total chunks: {chunk_count}, response length: {len(full_response)}")
+        
+        # Now parse the complete response for action items
+        if "###TODOS###" in full_response:
+            actions_idx = full_response.find("###TODOS###")
+            actions_section = full_response[actions_idx + len("###TODOS###"):]
+            
+            # Parse action items - look for bullet points or numbered items
+            seen_actions = set()
+            action_count = 0
+            for line in actions_section.split('\n'):
+                line = line.strip()
+                action_text = None
+                
+                if line.startswith("- "):
+                    action_text = line[2:].strip()
+                elif line.startswith("• "):
+                    action_text = line[2:].strip()
+                elif line and line[0].isdigit() and ". " in line[:4]:
+                    # Numbered item like "1. Action text"
+                    action_text = line.split(". ", 1)[-1].strip()
+                
+                if action_text and action_text not in seen_actions and len(action_text) > 3:
+                    seen_actions.add(action_text)
+                    yield f"[ACTION]{action_text}"
+                    action_count += 1
+                    if action_count >= 3:  # Max 3 actions
+                        break
+        
+        yield "[DONE]"
+        logger.info(f"[STREAM SUMMARY] Completed stream for {vector_db_id}")
+        
+    except Exception as e:
+        logger.error(f"[STREAM SUMMARY] Error: {str(e)}", exc_info=True)
+        yield f"[ERROR]{str(e)}"

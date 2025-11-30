@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import TranscriptSidebar from "../components/TranscriptSidebar";
 import {
   VideoSection,
@@ -32,7 +33,16 @@ interface ToastMessage {
   type: "success" | "info";
 }
 
+interface MetricsDataPoint {
+  timestamp: number;
+  elapsedSeconds: number;
+  value: number;
+  risk: number;
+  outcome: number;
+}
+
 export default function LiveCall() {
+  const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const sessionIdRef = useRef<string | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
@@ -59,6 +69,10 @@ export default function LiveCall() {
   const [goals, setGoals] = useState<string | null>(null);
   const [analyzingAction, setAnalyzingAction] = useState<"arguments" | "outcome" | null>(null);
   
+  // Call tracking
+  const [callStartTime] = useState<number>(Date.now());
+  const [metricsHistory, setMetricsHistory] = useState<MetricsDataPoint[]>([]);
+  
   // Action Points
   const [showActionPoints, setShowActionPoints] = useState(true);
   const [actionPoints, setActionPoints] = useState([
@@ -80,6 +94,26 @@ export default function LiveCall() {
   const removeToast = useCallback((id: number) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
+
+  // Handle end call - store all data and navigate to summary
+  const handleEndCall = useCallback(() => {
+    const callDuration = Math.floor((Date.now() - callStartTime) / 1000);
+    
+    // Store call summary data in sessionStorage
+    sessionStorage.setItem('callSummaryData', JSON.stringify({
+      callStartTime,
+      callDuration,
+      metricsHistory,
+      finalMetrics: metrics,
+      actionPoints,
+      transcripts,
+      vectorDbId,
+      goals,
+    }));
+    
+    // Navigate to summary
+    router.push('/summary');
+  }, [callStartTime, metricsHistory, metrics, actionPoints, transcripts, vectorDbId, goals, router]);
 
   // Load session data on mount
   useEffect(() => {
@@ -127,6 +161,17 @@ export default function LiveCall() {
         const data = await response.json();
         console.log("[Metrics] Received:", data);
         setMetrics({ value: data.value, risk: data.risk, outcome: data.outcome });
+        
+        // Store metrics in history
+        const now = Date.now();
+        const elapsedSeconds = Math.floor((now - callStartTime) / 1000);
+        setMetricsHistory(prev => [...prev, {
+          timestamp: now,
+          elapsedSeconds,
+          value: data.value,
+          risk: data.risk,
+          outcome: data.outcome
+        }]);
       }
     } catch (err) {
       console.error("[Metrics] Error:", err);
@@ -471,6 +516,7 @@ export default function LiveCall() {
         isConnecting={isConnecting}
         isDev={isDev}
         onRecordingToggle={handleRecordingToggle}
+        onEndCall={handleEndCall}
       />
 
       {/* Right side - Sidebar (1/3 of screen) */}

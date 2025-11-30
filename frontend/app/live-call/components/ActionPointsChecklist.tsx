@@ -35,16 +35,16 @@ export default function ActionPointsChecklist({
   };
 
   return (
-    <div className="m-3 rounded-xl bg-gradient-to-br from-emerald-50 via-white to-teal-50 border border-emerald-200/60 shadow-sm overflow-hidden">
+    <div className="mx-3 my-2 rounded-lg bg-gradient-to-br from-emerald-50 via-white to-teal-50 border border-emerald-200/60 shadow-sm overflow-hidden">
       {/* Header */}
       <button
         onClick={onToggleShow}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-emerald-50/50 transition-colors"
+        className="w-full px-3 py-2 flex items-center justify-between hover:bg-emerald-50/50 transition-colors"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <div className="relative">
             {/* Circular progress ring */}
-            <svg className="w-10 h-10 -rotate-90" viewBox="0 0 36 36">
+            <svg className="w-8 h-8 -rotate-90" viewBox="0 0 36 36">
               <circle
                 cx="18"
                 cy="18"
@@ -67,32 +67,32 @@ export default function ActionPointsChecklist({
             </svg>
             {/* Center icon/count */}
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-xs font-bold text-emerald-600">
+              <span className="text-[10px] font-bold text-emerald-600">
                 {completedCount}/{actionPoints.length}
               </span>
             </div>
           </div>
           <div>
-            <h3 className="text-sm font-bold text-gray-900">Action Points</h3>
-            <p className="text-xs text-emerald-600 font-medium">
+            <h3 className="text-xs font-bold text-gray-900">Action Points</h3>
+            <p className="text-[10px] text-emerald-600 font-medium">
               {completedCount === actionPoints.length 
                 ? "All complete! 🎉" 
                 : `${actionPoints.length - completedCount} remaining`}
             </p>
           </div>
         </div>
-        <div className={`p-1.5 rounded-full bg-emerald-100 transition-transform duration-200 ${showActionPoints ? 'rotate-180' : ''}`}>
-          <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className={`p-1 rounded-full bg-emerald-100 transition-transform duration-200 ${showActionPoints ? 'rotate-180' : ''}`}>
+          <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </div>
       </button>
       
       {/* Items list */}
-      <div className={`transition-all duration-300 ease-in-out ${
-        showActionPoints ? 'max-h-80 overflow-y-auto' : 'max-h-0 overflow-hidden'
+      <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+        showActionPoints ? 'max-h-[280px]' : 'max-h-0'
       }`}>
-        <div className="px-3 pb-3 space-y-2">
+        <div className="px-3 pb-2 space-y-1.5">
           {actionPoints.map((point, index) => {
             const isAnimating = animatingId === point.id;
             
@@ -101,27 +101,27 @@ export default function ActionPointsChecklist({
                 key={point.id}
                 onClick={() => handleToggle(point.id)}
                 className={`
-                  w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 text-left group relative
+                  w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-300 text-left group relative
                   ${point.completed 
-                    ? 'bg-emerald-100/80 shadow-inner' 
-                    : 'bg-white shadow-sm hover:shadow-md hover:scale-[1.01] border border-gray-100'
+                    ? 'bg-emerald-100/80' 
+                    : 'bg-white shadow-sm hover:shadow-md border border-gray-100'
                   }
                   ${isAnimating ? 'scale-[1.02] shadow-lg shadow-emerald-200/50' : ''}
                 `}
               >
                 {/* Step number / Checkbox */}
                 <div className={`
-                  relative flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center 
-                  transition-all duration-300 ease-out font-semibold text-xs
+                  relative flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center 
+                  transition-all duration-300 ease-out font-semibold text-[10px]
                   ${point.completed 
-                    ? 'bg-emerald-500 text-white shadow-md shadow-emerald-300/50' 
+                    ? 'bg-emerald-500 text-white' 
                     : 'bg-gray-100 text-gray-500 group-hover:bg-emerald-100 group-hover:text-emerald-600'
                   }
                   ${isAnimating ? 'animate-[checkbox-pop_0.4s_ease-out]' : ''}
                 `}>
                   {point.completed ? (
                     <svg 
-                      className="w-4 h-4"
+                      className="w-3.5 h-3.5"
                       fill="none" 
                       stroke="currentColor" 
                       viewBox="0 0 24 24"
@@ -150,21 +150,14 @@ export default function ActionPointsChecklist({
                 
                 {/* Text */}
                 <span className={`
-                  flex-1 text-sm transition-all duration-300 leading-snug
+                  flex-1 text-xs transition-all duration-300 leading-snug
                   ${point.completed 
-                    ? 'text-emerald-700 line-through decoration-emerald-400 decoration-2' 
-                    : 'text-gray-700 group-hover:text-gray-900'
+                    ? 'text-emerald-700 line-through decoration-emerald-400' 
+                    : 'text-gray-700'
                   }
                 `}>
                   {point.text}
                 </span>
-
-                {/* Completed badge */}
-                {point.completed && (
-                  <span className="flex-shrink-0 text-[10px] font-bold text-emerald-600 bg-emerald-200/60 px-2 py-0.5 rounded-full">
-                    DONE
-                  </span>
-                )}
               </button>
             );
           })}

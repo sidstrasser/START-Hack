@@ -10,6 +10,7 @@ interface VideoSectionProps {
   isConnecting: boolean;
   isDev: boolean;
   onRecordingToggle: () => void;
+  onEndCall: () => void;
 }
 
 export default function VideoSection({
@@ -20,7 +21,9 @@ export default function VideoSection({
   isConnecting,
   isDev,
   onRecordingToggle,
+  onEndCall,
 }: VideoSectionProps) {
+
   return (
     <div className="w-2/3 bg-black flex items-center justify-center relative">
       <div className="w-full h-full bg-gray-900 flex items-center justify-center relative">
@@ -81,6 +84,19 @@ export default function VideoSection({
               DEV
             </div>
           </div>
+        )}
+
+        {/* DEV: End Call Button (bottom-right corner) */}
+        {isDev && (
+          <button
+            onClick={onEndCall}
+            className="absolute bottom-4 right-4 z-10 w-12 h-12 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center transition-all duration-200 shadow-lg hover:scale-110"
+            title="End Call"
+          >
+            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08a.956.956 0 01-.29-.7c0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.1-.7-.28-.79-.73-1.68-1.36-2.66-1.85a.996.996 0 01-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/>
+            </svg>
+          </button>
         )}
 
         {/* Loading overlay */}
