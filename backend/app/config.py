@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     # ElevenLabs
     elevenlabs_api_key: str = ""
 
+    # HubSpot
+    hubspot_api_key: str
+
     # App Config
     upload_dir: str = "./uploads"
     max_upload_size: int = 10485760  # 10MB

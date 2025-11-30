@@ -264,8 +264,8 @@ export default function LiveCall() {
       if (actionItemsPollIntervalRef.current) {
         clearInterval(actionItemsPollIntervalRef.current);
         actionItemsPollIntervalRef.current = null;
-      }
-    };
+    }
+  };
   }, [vectorDbId, fetchActionItemsStatus]);
 
   // Recording functions
@@ -303,7 +303,7 @@ export default function LiveCall() {
         const uint8Array = new Uint8Array(pcmData.buffer);
         let binary = "";
         for (let i = 0; i < uint8Array.length; i++) binary += String.fromCharCode(uint8Array[i]);
-        
+
         try {
           await fetch(`${BACKEND_API_URL}/api/elevenlabs/audio`, {
             method: "POST",
@@ -334,34 +334,34 @@ export default function LiveCall() {
   };
 
   const stopRecording = async () => {
-    if (transcriptPollIntervalRef.current) {
-      clearInterval(transcriptPollIntervalRef.current);
-      transcriptPollIntervalRef.current = null;
-    }
-    if (processorRef.current) {
-      processorRef.current.disconnect();
-      processorRef.current = null;
-    }
-    if (audioContextRef.current) {
-      await audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    if (audioStreamRef.current) {
+      if (transcriptPollIntervalRef.current) {
+        clearInterval(transcriptPollIntervalRef.current);
+        transcriptPollIntervalRef.current = null;
+      }
+      if (processorRef.current) {
+        processorRef.current.disconnect();
+        processorRef.current = null;
+      }
+      if (audioContextRef.current) {
+        await audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      if (audioStreamRef.current) {
       audioStreamRef.current.getTracks().forEach(track => track.stop());
-      audioStreamRef.current = null;
-    }
-    if (sessionIdRef.current) {
-      try {
-        await fetch(`${BACKEND_API_URL}/api/elevenlabs/disconnect`, {
-          method: "POST",
+        audioStreamRef.current = null;
+      }
+      if (sessionIdRef.current) {
+        try {
+          await fetch(`${BACKEND_API_URL}/api/elevenlabs/disconnect`, {
+            method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sessionId: sessionIdRef.current }),
-        });
+          });
       } catch { /* silent */ }
-      sessionIdRef.current = null;
-    }
-    setIsRecording(false);
-    setIsConnecting(false);
+        sessionIdRef.current = null;
+      }
+      setIsRecording(false);
+      setIsConnecting(false);
   };
 
   const handleRecordingToggle = async () => {
@@ -474,9 +474,9 @@ export default function LiveCall() {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.play();
-          setIsLoading(false);
-        }
-      } catch (err) {
+              setIsLoading(false);
+              }
+            } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to access camera.");
         setIsLoading(false);
       }
@@ -495,13 +495,13 @@ export default function LiveCall() {
       processorRef.current?.disconnect();
       audioContextRef.current?.close();
       audioStreamRef.current?.getTracks().forEach(track => track.stop());
-      if (sessionIdRef.current) {
+          if (sessionIdRef.current) {
         fetch(`${BACKEND_API_URL}/api/elevenlabs/disconnect`, {
-          method: "POST",
+                method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sessionId: sessionIdRef.current }),
         }).catch(() => {});
-      }
+          }
     };
   }, []);
 
@@ -548,7 +548,7 @@ export default function LiveCall() {
                 showActionPoints={showActionPoints}
                 onToggleShow={() => setShowActionPoints(!showActionPoints)}
                 onTogglePoint={toggleActionPoint}
-              />
+                />
             </div>
 
             {/* Scrollable insights area */}
