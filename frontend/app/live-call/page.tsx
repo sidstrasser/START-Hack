@@ -11,6 +11,8 @@ import {
   ActionButtonsGroup,
 } from "./components";
 import Toast from "./components/Toast";
+import { useEmotionDetection } from "@/lib/hooks/useEmotionDetection";
+import { detectFace } from "@/lib/services/faceDetection";
 
 // Backend API base URL
 const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
@@ -30,7 +32,8 @@ interface Transcript {
 interface ToastMessage {
   id: number;
   message: string;
-  type: "success" | "info";
+  type: "success" | "info" | "warning";
+  emotion?: string; // Track emotion type to prevent duplicates
 }
 
 interface MetricsDataPoint {
@@ -51,7 +54,10 @@ export default function LiveCall() {
   const transcriptPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const metricsPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const actionItemsPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const emotionDetectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const faceDetectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const toastIdRef = useRef(0);
+  const lastEmotionToastRef = useRef<{ emotion: string; timestamp: number } | null>(null);
 
   // UI State
   const [isLoading, setIsLoading] = useState(true);
@@ -75,20 +81,42 @@ export default function LiveCall() {
   
   // Action Points
   const [showActionPoints, setShowActionPoints] = useState(true);
-  const [actionPoints, setActionPoints] = useState([
-    { id: 1, text: "Establish rapport and set agenda", completed: false },
-    { id: 2, text: "Present opening position with confidence", completed: false },
-    { id: 3, text: "Identify their key priorities and concerns", completed: false },
-    { id: 4, text: "Use leverage points when appropriate", completed: false },
-    { id: 5, text: "Secure commitment on next steps", completed: false },
-  ]);
+  const [actionPoints, setActionPoints] = useState<Array<{ id: number; text: string; completed: boolean; recommended?: boolean }>>([]);
+
+  // Emotion Detection
+  const { isModelReady, isLoading: isEmotionModelLoading, error: emotionModelError, detect: detectEmotion } = useEmotionDetection();
+  const [topEmotions, setTopEmotions] = useState<Array<{ emotion: string; confidence: number }>>([]);
+  const [showEmotions, setShowEmotions] = useState(true);
+  const [faceBox, setFaceBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [showFaceBox, setShowFaceBox] = useState(false);
+
+  // Debug logging for emotion detection state
+  useEffect(() => {
+    console.log('[LiveCall] Emotion detection state changed', {
+      isModelReady,
+      isEmotionModelLoading,
+      emotionModelError,
+    });
+  }, [isModelReady, isEmotionModelLoading, emotionModelError]);
 
   const isDev = process.env.NODE_ENV === "development";
 
   // Toast helper
-  const showToast = useCallback((message: string, type: "success" | "info" = "success") => {
-    const id = ++toastIdRef.current;
-    setToasts(prev => [...prev, { id, message, type }]);
+  const showToast = useCallback((message: string, type: "success" | "info" | "warning" = "success", emotion?: string) => {
+    // For "No Face" toasts, only show one at a time
+    if (emotion === 'No Face') {
+      setToasts(prev => {
+        // Check if there's already a "No Face" toast
+        if (prev.some(t => t.emotion === 'No Face')) {
+          return prev; // Don't add another one
+        }
+        const id = ++toastIdRef.current;
+        return [...prev, { id, message, type, emotion }];
+      });
+    } else {
+      const id = ++toastIdRef.current;
+      setToasts(prev => [...prev, { id, message, type, emotion }]);
+    }
   }, []);
 
   const removeToast = useCallback((id: number) => {
@@ -130,6 +158,27 @@ export default function LiveCall() {
       }
     }
     if (storedGoals) setGoals(storedGoals);
+
+    // Load selected action items from sessionStorage (passed from action-items page)
+    const storedActionItems = sessionStorage.getItem('selectedActionItems');
+    if (storedActionItems) {
+      try {
+        const items = JSON.parse(storedActionItems);
+        if (Array.isArray(items) && items.length > 0) {
+          setActionPoints(items);
+        } else {
+          console.warn('[LiveCall] No action items found in sessionStorage');
+          setActionPoints([]);
+        }
+      } catch (e) {
+        console.error('[LiveCall] Failed to parse selected action items:', e);
+        setActionPoints([]);
+      }
+    } else {
+      // No action items selected - user should go through action-items page first
+      console.warn('[LiveCall] No action items in sessionStorage - redirecting to action-items page');
+      router.push('/action-items');
+    }
   }, []);
 
   // Toggle action point completion
@@ -473,9 +522,15 @@ export default function LiveCall() {
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          videoRef.current.play();
-              setIsLoading(false);
-              }
+          // Handle play() promise to avoid AbortError
+          videoRef.current.play().catch((err) => {
+            // Ignore AbortError - it's expected when video source changes
+            if (err.name !== 'AbortError') {
+              console.error('[LiveCall] Video play error:', err);
+            }
+          });
+          setIsLoading(false);
+        }
             } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to access camera.");
         setIsLoading(false);
@@ -486,12 +541,132 @@ export default function LiveCall() {
     return () => { stream?.getTracks().forEach(track => track.stop()); };
   }, []);
 
+  // Emotion detection interval - uses lazy initialization via detect()
+  useEffect(() => {
+    // Start immediately - detect() will handle model initialization lazily
+    console.log('[LiveCall] Starting emotion detection interval (every 2 seconds)');
+
+    const runEmotionDetection = async () => {
+      try {
+        // Skip if video is not ready
+        if (!videoRef.current) {
+          return;
+        }
+
+        if (videoRef.current.readyState < 2 || videoRef.current.paused) {
+          return;
+        }
+
+        // detect() will lazily initialize the model if needed
+        const result = await detectEmotion(videoRef.current);
+        
+        // Update top emotions display
+        if (result) {
+          // Update face box for visualization
+          setFaceBox(result.faceBox || null);
+          
+          if (result.emotion === 'No Face') {
+            // Show "No Face" in the overlay
+            setTopEmotions([{ emotion: 'No Face', confidence: 0 }]);
+            
+            // Show gentle toast (with longer cooldown - 10 seconds)
+            const now = Date.now();
+            const lastToast = lastEmotionToastRef.current;
+            if (!lastToast || lastToast.emotion !== 'No Face' || (now - lastToast.timestamp) > 10000) {
+              showToast('Position your face in the camera', 'info', 'No Face');
+              lastEmotionToastRef.current = { emotion: 'No Face', timestamp: now };
+            }
+          } else {
+            const sorted = Object.entries(result.probabilities)
+              .map(([emotion, confidence]) => ({ emotion, confidence }))
+              .sort((a, b) => b.confidence - a.confidence)
+              .slice(0, 2);
+            setTopEmotions(sorted);
+            
+            // Show warning toast for negative emotions
+            if (result.isNegative) {
+              const now = Date.now();
+              const lastToast = lastEmotionToastRef.current;
+              
+              // Prevent duplicate toasts for same emotion within 5 seconds
+              if (!lastToast || lastToast.emotion !== result.emotion || (now - lastToast.timestamp) > 5000) {
+                const emotionMessages: Record<string, string> = {
+                  'Sadness': 'Sad emotion detected',
+                  'Anger': 'Angry emotion detected',
+                  'Disgust': 'Disgusted emotion detected',
+                  'Fear': 'Fearful emotion detected',
+                };
+                
+                const message = emotionMessages[result.emotion] || `${result.emotion} detected`;
+                showToast(message, 'warning', result.emotion);
+                lastEmotionToastRef.current = { emotion: result.emotion, timestamp: now };
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[LiveCall] Emotion detection error:', err);
+      }
+    };
+
+    // Run detection every 2 seconds
+    emotionDetectionIntervalRef.current = setInterval(runEmotionDetection, 2000);
+    
+    // Run immediately
+    runEmotionDetection();
+
+    return () => {
+      if (emotionDetectionIntervalRef.current) {
+        clearInterval(emotionDetectionIntervalRef.current);
+        emotionDetectionIntervalRef.current = null;
+      }
+    };
+  }, [detectEmotion, showToast]);
+
+  // Fast face detection for visualization (runs every 100ms when showFaceBox is enabled)
+  useEffect(() => {
+    if (!showFaceBox) {
+      // Clear interval when face box is hidden
+      if (faceDetectionIntervalRef.current) {
+        clearInterval(faceDetectionIntervalRef.current);
+        faceDetectionIntervalRef.current = null;
+      }
+      return;
+    }
+
+    const runFaceDetection = async () => {
+      if (!videoRef.current || videoRef.current.readyState < 2 || videoRef.current.paused) {
+        return;
+      }
+
+      try {
+        const box = await detectFace(videoRef.current);
+        setFaceBox(box);
+      } catch (err) {
+        // Silently ignore errors in visualization
+      }
+    };
+
+    // Run face detection every 100ms for smooth visualization
+    faceDetectionIntervalRef.current = setInterval(runFaceDetection, 100);
+    runFaceDetection();
+
+    return () => {
+      if (faceDetectionIntervalRef.current) {
+        clearInterval(faceDetectionIntervalRef.current);
+        faceDetectionIntervalRef.current = null;
+      }
+    };
+  }, [showFaceBox]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (transcriptPollIntervalRef.current) clearInterval(transcriptPollIntervalRef.current);
       if (metricsPollIntervalRef.current) clearInterval(metricsPollIntervalRef.current);
       if (actionItemsPollIntervalRef.current) clearInterval(actionItemsPollIntervalRef.current);
+      if (emotionDetectionIntervalRef.current) clearInterval(emotionDetectionIntervalRef.current);
+      if (faceDetectionIntervalRef.current) clearInterval(faceDetectionIntervalRef.current);
       processorRef.current?.disconnect();
       audioContextRef.current?.close();
       audioStreamRef.current?.getTracks().forEach(track => track.stop());
@@ -517,6 +692,12 @@ export default function LiveCall() {
         isDev={isDev}
         onRecordingToggle={handleRecordingToggle}
         onEndCall={handleEndCall}
+        topEmotions={topEmotions}
+        showEmotions={showEmotions}
+        onToggleEmotions={() => setShowEmotions(!showEmotions)}
+        faceBox={faceBox}
+        showFaceBox={showFaceBox}
+        onToggleFaceBox={() => setShowFaceBox(!showFaceBox)}
       />
 
       {/* Right side - Sidebar (1/3 of screen) */}
@@ -582,6 +763,18 @@ export default function LiveCall() {
           />
         ))}
       </div>
+
+      {/* Emotion model loading indicator (dev only) */}
+      {isDev && isEmotionModelLoading && (
+        <div className="fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg text-sm shadow-lg z-50">
+          Loading emotion model...
+        </div>
+      )}
+      {isDev && emotionModelError && (
+        <div className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg text-sm shadow-lg z-50">
+          Emotion model error: {emotionModelError}
+        </div>
+      )}
     </main>
   );
 }

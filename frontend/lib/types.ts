@@ -103,8 +103,9 @@ export interface OutcomeAssessment {
 }
 
 export interface ActionItem {
-  id: number;
-  description: string;
+  category: "price" | "terms" | "timeline" | "scope";
+  action: string;
+  recommended?: boolean;
 }
 
 export interface ActionItemsList {

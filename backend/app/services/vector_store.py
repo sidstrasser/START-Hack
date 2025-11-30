@@ -49,39 +49,50 @@ def get_arguments_context(briefing: dict) -> str:
     Build context optimized for generating argument suggestions.
     
     Focuses on:
-    - Executive Summary
-    - Leverage Points
-    - Potential Objections
-    - Risk Assessment
+    - Supplier Summary
+    - Leverage Points (from outcome_assessment)
+    - Recommended Tactics (from outcome_assessment)
+    - Key Risks (from market_analysis)
     """
     if not briefing:
         return "No briefing context available."
     
     context_parts = []
     
-    # Executive Summary - overall context and goals
-    if briefing.get("executive_summary"):
-        context_parts.append(f"## EXECUTIVE SUMMARY\n{briefing['executive_summary']}")
+    # Supplier Summary - overall context
+    if briefing.get("supplier_summary"):
+        supplier = briefing["supplier_summary"]
+        if supplier.get("company_overview"):
+            context_parts.append(f"## SUPPLIER OVERVIEW\n{supplier['company_overview']}")
+        if supplier.get("key_facts"):
+            facts_text = "\n".join([f"• {fact}" for fact in supplier.get("key_facts", [])])
+            context_parts.append(f"## KEY FACTS\n{facts_text}")
     
-    # Leverage Points - the most actionable for arguments
-    if briefing.get("leverage_points"):
-        leverages = briefing["leverage_points"]
-        leverage_text = "\n".join([f"• {lp.get('lever', '')}\n  How to use: {lp.get('how_to_use', '')}" for lp in leverages])
-        context_parts.append(f"## LEVERAGE POINTS\n{leverage_text}")
+    # Leverage Points - from outcome_assessment
+    if briefing.get("outcome_assessment"):
+        outcome = briefing["outcome_assessment"]
+        if outcome.get("negotiation_leverage"):
+            leverage_text = "\n".join([f"• {lever}" for lever in outcome.get("negotiation_leverage", [])])
+            context_parts.append(f"## NEGOTIATION LEVERAGE\n{leverage_text}")
+        if outcome.get("recommended_tactics"):
+            tactics_text = "\n".join([f"• {tactic}" for tactic in outcome.get("recommended_tactics", [])])
+            context_parts.append(f"## RECOMMENDED TACTICS\n{tactics_text}")
     
-    # Potential Objections & Counters
-    if briefing.get("potential_objections"):
-        objections = briefing["potential_objections"]
-        objections_text = "\n".join([f"• If they say: \"{obj.get('objection', '')}\"\n  You respond: \"{obj.get('counter', '')}\"" for obj in objections])
-        context_parts.append(f"## POTENTIAL OBJECTIONS & COUNTERS\n{objections_text}")
+    # Key Risks - from market_analysis
+    if briefing.get("market_analysis"):
+        market = briefing["market_analysis"]
+        if market.get("key_risks"):
+            risks_text = "\n".join([f"• {risk}" for risk in market.get("key_risks", [])])
+            context_parts.append(f"## KEY RISKS\n{risks_text}")
     
-    # Risk Assessment
-    if briefing.get("risk_assessment"):
-        risks = briefing["risk_assessment"]
-        if risks.get("risks"):
-            context_parts.append(f"## RISK ASSESSMENT\n{chr(10).join(['• ' + r for r in risks['risks']])}")
-        if risks.get("mitigation"):
-            context_parts.append(f"Mitigation Strategies:\n{chr(10).join(['• ' + m for m in risks['mitigation']])}")
+    # Offer Analysis - price context
+    if briefing.get("offer_analysis"):
+        offer = briefing["offer_analysis"]
+        if offer.get("price_assessment"):
+            context_parts.append(f"## PRICE ASSESSMENT\n{offer['price_assessment']}")
+        if offer.get("hidden_cost_warnings"):
+            warnings_text = "\n".join([f"• {warning}" for warning in offer.get("hidden_cost_warnings", [])])
+            context_parts.append(f"## HIDDEN COST WARNINGS\n{warnings_text}")
     
     return "\n\n".join(context_parts) if context_parts else "No briefing context available."
 
@@ -91,30 +102,37 @@ def get_outcome_context(briefing: dict) -> str:
     Build context optimized for outcome analysis.
     
     Focuses on:
-    - Success Metrics
-    - Negotiation Strategy
+    - Outcome Assessment (target_achievable, confidence, partnership_recommendation)
+    - Negotiation Leverage
+    - Recommended Tactics
     """
     if not briefing:
         return "No briefing context available."
     
     context_parts = []
     
-    # Success Metrics - what defines a good outcome
-    if briefing.get("success_metrics"):
-        metrics = briefing["success_metrics"]
-        metrics_text = "\n".join([f"• {m}" for m in metrics])
-        context_parts.append(f"## SUCCESS METRICS\n{metrics_text}")
+    # Outcome Assessment - main section
+    if briefing.get("outcome_assessment"):
+        outcome = briefing["outcome_assessment"]
+        outcome_text = f"""## OUTCOME ASSESSMENT
+- Target Achievable: {'Yes' if outcome.get('target_achievable') else 'No'}
+- Confidence Level: {outcome.get('confidence', 'Unknown')}
+- Partnership Recommendation: {outcome.get('partnership_recommendation', 'Not specified')}"""
+        context_parts.append(outcome_text)
+        
+        if outcome.get("negotiation_leverage"):
+            leverage_text = "\n".join([f"• {lever}" for lever in outcome.get("negotiation_leverage", [])])
+            context_parts.append(f"## NEGOTIATION LEVERAGE\n{leverage_text}")
+        
+        if outcome.get("recommended_tactics"):
+            tactics_text = "\n".join([f"• {tactic}" for tactic in outcome.get("recommended_tactics", [])])
+            context_parts.append(f"## RECOMMENDED TACTICS\n{tactics_text}")
     
-    # Negotiation Strategy - targets and positions
-    if briefing.get("negotiation_strategy"):
-        strategy = briefing["negotiation_strategy"]
-        context_parts.append(f"""## NEGOTIATION STRATEGY
-- Opening Position: {strategy.get('opening_position', 'Not specified')}
-- Target Position: {strategy.get('target_position', 'Not specified')}
-- Walkaway Point: {strategy.get('walkaway_point', 'Not specified')}""")
-        if strategy.get("recommended_sequence"):
-            sequence = "\n".join([f"  {i+1}. {step}" for i, step in enumerate(strategy['recommended_sequence'])])
-            context_parts.append(f"- Recommended Sequence:\n{sequence}")
+    # Offer Analysis - price context
+    if briefing.get("offer_analysis"):
+        offer = briefing["offer_analysis"]
+        if offer.get("price_assessment"):
+            context_parts.append(f"## PRICE ASSESSMENT\n{offer['price_assessment']}")
     
     return "\n\n".join(context_parts) if context_parts else "No briefing context available."
 
@@ -124,154 +142,74 @@ def get_metrics_context(briefing: dict) -> str:
     Build context optimized for metrics calculation.
     
     Focuses on:
-    - Negotiation strategy (for value/outcome scoring)
-    - Risk assessment (for risk scoring)
-    - Success metrics
-    - Offer analysis
+    - Outcome assessment (target_achievable, confidence) for outcome scoring
+    - Market analysis (key_risks) for risk scoring
+    - Offer analysis (price_assessment) for value scoring
     """
     if not briefing:
         return "No briefing context available."
     
     context_parts = []
     
-    # Negotiation targets for value scoring
-    if briefing.get("negotiation_strategy"):
-        strategy = briefing["negotiation_strategy"]
-        context_parts.append(f"""## VALUE BENCHMARKS
-- Opening (Best case): {strategy.get('opening_position', 'Not specified')}
-- Target (Good outcome): {strategy.get('target_position', 'Not specified')}
-- Walkaway (Minimum acceptable): {strategy.get('walkaway_point', 'Not specified')}""")
+    # Outcome Assessment - for outcome scoring
+    if briefing.get("outcome_assessment"):
+        outcome = briefing["outcome_assessment"]
+        outcome_text = f"""## OUTCOME TARGETS
+- Target Achievable: {'Yes' if outcome.get('target_achievable') else 'No'}
+- Confidence Level: {outcome.get('confidence', 'Unknown')}
+- Partnership Recommendation: {outcome.get('partnership_recommendation', 'Not specified')}"""
+        context_parts.append(outcome_text)
     
-    # Risk factors
-    if briefing.get("risk_assessment"):
-        risks = briefing["risk_assessment"]
-        if risks.get("risks"):
-            context_parts.append(f"## RISK FACTORS\n{chr(10).join(['• ' + r for r in risks['risks']])}")
+    # Risk factors - from market_analysis
+    if briefing.get("market_analysis"):
+        market = briefing["market_analysis"]
+        if market.get("key_risks"):
+            risks_text = "\n".join([f"• {risk}" for risk in market.get("key_risks", [])])
+            context_parts.append(f"## RISK FACTORS\n{risks_text}")
     
-    # Success metrics
-    if briefing.get("success_metrics"):
-        metrics = briefing["success_metrics"]
-        context_parts.append(f"## SUCCESS CRITERIA\n{chr(10).join(['• ' + m for m in metrics])}")
-    
-    # Offer details
+    # Offer Analysis - for value scoring
     if briefing.get("offer_analysis"):
         offer = briefing["offer_analysis"]
-        context_parts.append(f"## OFFER\n- Value: {offer.get('total_value', 'Unknown')}")
+        offer_parts = []
+        if offer.get("price_assessment"):
+            offer_parts.append(f"Price Assessment: {offer['price_assessment']}")
+        if offer.get("completeness_score"):
+            offer_parts.append(f"Completeness Score: {offer['completeness_score']}/10")
+        if offer.get("completeness_notes"):
+            offer_parts.append(f"Completeness Notes: {offer['completeness_notes']}")
+        if offer_parts:
+            context_parts.append(f"## OFFER ANALYSIS\n{chr(10).join(offer_parts)}")
     
     return "\n\n".join(context_parts) if context_parts else "No briefing context available."
 
 
 def get_briefing_context(vector_db_id: str, action_type: str = None) -> str:
     """
-    Get briefing context from in-memory store, optimized for the action type.
+    Get briefing context from in-memory store.
+    
+    Returns the full briefing context for all action types.
 
     Args:
         vector_db_id: The job_id used to look up the briefing
-        action_type: Optional - "arguments", "outcome", or "metrics"
+        action_type: Optional - ignored, always returns full context
 
     Returns:
-        Vector DB ID (same as job_id)
+        Formatted context string with all briefing sections
     """
-    # Get namespace for this job (server-derived, not client-provided)
-    namespace = get_namespace_for_job(job_id)
-
-    # Create data records from NEW briefing sections (5 sections)
-    data_records = []
-
-    # Record 1: Supplier Summary
-    if "supplier_summary" in briefing:
-        text = f"Supplier Summary:\n{json.dumps(briefing['supplier_summary'], indent=2)}"
-        data_records.append({
-            "id": f"{job_id}_supplier_summary",
-            "text": text,
-            "section": "supplier_summary",
-            "job_id": job_id
-        })
-
-    # Record 2: Market Analysis
-    if "market_analysis" in briefing:
-        text = f"Market Analysis:\n{json.dumps(briefing['market_analysis'], indent=2)}"
-        data_records.append({
-            "id": f"{job_id}_market_analysis",
-            "text": text,
-            "section": "market_analysis",
-            "job_id": job_id
-        })
-
-    # Record 3: Offer Analysis
-    if "offer_analysis" in briefing:
-        text = f"Offer Analysis:\n{json.dumps(briefing['offer_analysis'], indent=2)}"
-        data_records.append({
-            "id": f"{job_id}_offer_analysis",
-            "text": text,
-            "section": "offer_analysis",
-            "job_id": job_id
-        })
-
-    # Record 4: Outcome Assessment
-    if "outcome_assessment" in briefing:
-        text = f"Outcome Assessment:\n{json.dumps(briefing['outcome_assessment'], indent=2)}"
-        data_records.append({
-            "id": f"{job_id}_outcome_assessment",
-            "text": text,
-            "section": "outcome_assessment",
-            "job_id": job_id
-        })
-
-    # Record 5: Action Items
-    if "action_items" in briefing:
-        text = f"Action Items:\n{json.dumps(briefing['action_items'], indent=2)}"
-        data_records.append({
-            "id": f"{job_id}_action_items",
-            "text": text,
-            "section": "action_items",
-            "job_id": job_id
-        })
-
-    if not data_records:
-        logger.warning(f"No briefing sections to store for job_id={job_id}")
-        return job_id
-
-    # Generate embeddings using Pinecone Inference API
-    # Uses multilingual-e5-large model (1024 dimensions)
-    try:
-        texts = [record["text"] for record in data_records]
-
-        # Generate embeddings using Pinecone's hosted model
-        embeddings_response = pc.inference.embed(
-            model="multilingual-e5-large",
-            inputs=texts,
-            parameters={
-                "input_type": "passage",
-                "truncate": "END"
-            }
-        )
-
-        # Prepare vectors for upsert
-        vectors = []
-        for i, record in enumerate(data_records):
-            vectors.append({
-                "id": record["id"],
-                "values": embeddings_response[i]["values"],
-                "metadata": {
-                    "text": record["text"],
-                    "section": record["section"],
-                    "job_id": record["job_id"]
-                }
-            })
-
-        # Upsert vectors to Pinecone
-        index.upsert(
-            vectors=vectors,
-            namespace=namespace
-        )
-
-        logger.info(f"Successfully stored {len(vectors)} vectors in Pinecone namespace={namespace}")
-    except Exception as e:
-        logger.error(f"Error upserting to Pinecone: {str(e)}", exc_info=True)
-        raise
-
-    return job_id
+    # Get briefing data from in-memory store
+    briefing = get_briefing_data(vector_db_id)
+    
+    if not briefing:
+        return "No briefing context available."
+    
+    # Always return comprehensive context combining all sections
+    context_parts = []
+    context_parts.append(get_arguments_context(briefing))
+    context_parts.append("\n---\n")
+    context_parts.append(get_outcome_context(briefing))
+    context_parts.append("\n---\n")
+    context_parts.append(get_metrics_context(briefing))
+    return "\n".join(context_parts)
 
 
 async def query_briefing_rag(vector_db_id: str, query: str) -> Dict[str, Any]:

@@ -140,8 +140,14 @@ class OutcomeAssessment(BaseModel):
 class ActionItem(BaseModel):
     """Individual action item for the negotiation."""
 
-    id: int = Field(description="Unique ID for the action item (1-5)")
-    description: str = Field(description="Description of the action to take")
+    category: Literal["price", "terms", "timeline", "scope"] = Field(
+        description="Category of the action item"
+    )
+    action: str = Field(description="Description of the action to take")
+    recommended: bool = Field(
+        default=False,
+        description="Whether this is a recommended action item (exactly 2 should be marked as recommended)"
+    )
 
 
 class ActionItemsList(BaseModel):

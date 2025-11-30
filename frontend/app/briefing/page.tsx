@@ -76,9 +76,6 @@ export default function Briefing() {
 
   const handleViewActionItems = () => {
     router.push('/action-items');
-  const handleUseInLiveCall = () => {
-    // Navigate directly to live call page
-      router.push('/live-call');
   };
 
   if (sseError) {
@@ -303,14 +300,73 @@ export default function Briefing() {
                 </section>
               )}
 
+              {/* 5. Action Items */}
+              {briefing.briefing.action_items && briefing.briefing.action_items.length > 0 && (
+                <section>
+                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-red-600 pb-2">
+                    Action Items
+                  </h2>
+                  <div className="space-y-6">
+                    {/* Recommended Items */}
+                    {briefing.briefing.action_items.filter((item: any) => item.recommended).length > 0 && (
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-800 mb-3">
+                          Recommended
+                        </h3>
+                        <div className="space-y-2">
+                          {briefing.briefing.action_items
+                            .filter((item: any) => item.recommended)
+                            .map((item: any, idx: number) => (
+                              <div key={idx} className="p-4 rounded-lg border-l-4 bg-blue-50 border-blue-500 shadow-sm">
+                                <div className="flex items-start gap-3">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-600 text-white">
+                                    Recommended
+                                  </span>
+                                  <span className="px-2 py-1 text-xs font-semibold rounded bg-blue-100 text-blue-800">
+                                    {item.category.toUpperCase()}
+                                  </span>
+                                  <p className="flex-1 text-blue-900 font-medium">{item.action}</p>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Other Items */}
+                    {briefing.briefing.action_items.filter((item: any) => !item.recommended).length > 0 && (
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-800 mb-3">
+                          Additional Items
+                        </h3>
+                        <div className="space-y-2">
+                          {briefing.briefing.action_items
+                            .filter((item: any) => !item.recommended)
+                            .map((item: any, idx: number) => (
+                              <div key={idx} className="p-3 rounded-lg border-l-4 bg-blue-50 border-blue-500">
+                                <div className="flex items-start gap-3">
+                                  <span className="px-2 py-1 text-xs font-semibold rounded bg-blue-100 text-blue-800">
+                                    {item.category.toUpperCase()}
+                                  </span>
+                                  <p className="flex-1 text-blue-900">{item.action}</p>
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
             </div>
 
-            <div className="mt-8 flex gap-4">
+            {/* Action Buttons */}
+            <div className="mt-8 flex gap-4 border-t pt-6">
               <button
                 onClick={handleViewActionItems}
-                className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700"
+                className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700"
               >
-                View Action Items
+                Select Action Items
               </button>
               <button
                 onClick={() => window.print()}
