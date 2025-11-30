@@ -1,28 +1,30 @@
+"""
+LangGraph workflow definition for negotiation briefing generation.
+
+New simplified flow:
+START → parse → research → analyze → END
+
+Each node has conditional error checking to stop pipeline on failures.
+"""
+
 from langgraph.graph import StateGraph, END
 from app.agents.state import NegotiationState
-from app.agents.orchestrator import orchestrator_node
-from app.agents.goal_normalizer import goal_normalizer_node
+from app.agents.parse import parse_node
 from app.agents.research import research_node
-from app.agents.potential import potential_node
-from app.agents.briefing import briefing_node
+from app.agents.analyze import analyze_node
 
 
-def should_continue(state: NegotiationState) -> str:
-    """
-    Conditional edge: Check if we should continue after orchestrator.
-
-    If there are validation errors, we end early.
-    """
-    if state.get("errors") and len(state["errors"]) > 0:
-        return "end"
-    return "continue"
-
-
-def should_continue_after_agent(state: NegotiationState) -> str:
+def should_continue_after_node(state: NegotiationState) -> str:
     """
     Conditional edge: Check if pipeline should continue or stop due to errors.
 
-    This is used after each agent to stop the pipeline if errors occurred.
+    This is used after each node to stop the pipeline if errors occurred.
+
+    Args:
+        state: Current negotiation state
+
+    Returns:
+        "continue" if no errors, "end" if errors exist
     """
     if state.get("errors") and len(state["errors"]) > 0:
         return "end"
@@ -33,62 +35,67 @@ def create_negotiation_graph():
     """
     Create the LangGraph workflow for negotiation briefing generation.
 
-    Flow:
-    START -> Orchestrator -> Goal Normalizer -> Research -> Potential -> Briefing -> END
+    New Flow:
+    START → parse → research → analyze → END
+
+    Each node:
+    - parse: Validates inputs, extracts alternatives from PDF
+    - research: Web search for company info and news
+    - analyze: Generates final briefing with 5 sections
+
+    Error Handling:
+    - After each node, check for errors in state
+    - If errors exist, terminate pipeline early
+    - Each node publishes progress events via SSE
+
+    Returns:
+        Compiled LangGraph workflow
     """
     workflow = StateGraph(NegotiationState)
 
-    # Add nodes
-    workflow.add_node("orchestrator", orchestrator_node)
-    workflow.add_node("goal_normalizer", goal_normalizer_node)
+    # ========================================================================
+    # ADD NODES
+    # ========================================================================
+    workflow.add_node("parse", parse_node)
     workflow.add_node("research", research_node)
-    workflow.add_node("potential", potential_node)
-    workflow.add_node("briefing", briefing_node)
+    workflow.add_node("analyze", analyze_node)
 
-    # Set entry point
-    workflow.set_entry_point("orchestrator")
+    # ========================================================================
+    # SET ENTRY POINT
+    # ========================================================================
+    workflow.set_entry_point("parse")
 
-    # Add edges with error checking after each agent
+    # ========================================================================
+    # ADD CONDITIONAL EDGES WITH ERROR CHECKING
+    # ========================================================================
+
+    # After parse: continue to research or end if errors
     workflow.add_conditional_edges(
-        "orchestrator",
-        should_continue,
-        {
-            "continue": "goal_normalizer",
-            "end": END
-        }
-    )
-
-    workflow.add_conditional_edges(
-        "goal_normalizer",
-        should_continue_after_agent,
+        "parse",
+        should_continue_after_node,
         {
             "continue": "research",
             "end": END
         }
     )
 
+    # After research: continue to analyze or end if errors
     workflow.add_conditional_edges(
         "research",
-        should_continue_after_agent,
+        should_continue_after_node,
         {
-            "continue": "potential",
+            "continue": "analyze",
             "end": END
         }
     )
 
-    workflow.add_conditional_edges(
-        "potential",
-        should_continue_after_agent,
-        {
-            "continue": "briefing",
-            "end": END
-        }
-    )
-
-    workflow.add_edge("briefing", END)
+    # After analyze: always end (final node)
+    workflow.add_edge("analyze", END)
 
     return workflow.compile()
 
 
-# Create compiled graph instance
+# ============================================================================
+# CREATE COMPILED GRAPH INSTANCE
+# ============================================================================
 negotiation_graph = create_negotiation_graph()

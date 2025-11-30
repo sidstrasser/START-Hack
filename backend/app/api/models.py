@@ -1,17 +1,31 @@
 from pydantic import BaseModel
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Literal
+
+
+class FormDataInput(BaseModel):
+    """User-provided form data for briefing generation."""
+    supplier_name: str
+    supplier_contact: Optional[str] = None
+    product_description: str
+    product_type: Literal["software", "hardware", "service"]
+    offer_price: str
+    pricing_model: Literal["yearly", "monthly", "one-time"]
+    max_price: str
+    target_price: str
+    value_assessment: Literal["urgent", "high_impact", "medium_impact", "low_impact"]
 
 
 class UploadResponse(BaseModel):
     """Response from PDF upload endpoint."""
     document_id: str
-    extracted_data: Dict[str, Any]
+    extracted_data: Dict[str, Any]  # Auto-extracted form data for pre-filling
 
 
 class BriefingRequest(BaseModel):
     """Request to generate briefing."""
     document_id: str
-    additional_context: Optional[Dict[str, Any]] = None
+    form_data: FormDataInput
+    additional_context: Optional[str] = None
 
 
 class BriefingResponse(BaseModel):

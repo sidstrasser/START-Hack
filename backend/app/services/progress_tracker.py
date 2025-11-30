@@ -64,3 +64,13 @@ class ProgressTracker:
 
 # Global singleton instance
 progress_tracker = ProgressTracker()
+
+
+def get_progress_tracker() -> ProgressTracker:
+    """
+    Get the global progress tracker instance.
+
+    Returns:
+        The singleton ProgressTracker instance
+    """
+    return progress_tracker

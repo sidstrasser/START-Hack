@@ -1,25 +1,29 @@
 // TypeScript types matching backend Pydantic models
 
+// Form data extracted from supplier offer PDF
 export interface ExtractedData {
-  raw_text: string;
-  supplier: string | null;
+  supplier_name: string;
+  supplier_contact: string | null;
+  product_description: string;
+  product_type: "software" | "hardware" | "service";
+  offer_price: string;
+  pricing_model: "yearly" | "monthly" | "one-time";
+  max_price: string;
+  target_price: string;
+  value_assessment: "urgent" | "high_impact" | "medium_impact" | "low_impact";
+}
 
-  // Cost & Savings
-  offer_price: string | null;
-  pricing_model: string | null;
-  desired_price: string | null;
-  is_substitute: boolean;
-  current_price: string | null;
-
-  // Value / Requirements (1-10)
-  added_value: number | null;
-  need: number | null;
-
-  // Risk / Contract (1-10)
-  impact_of_outage: number | null;
-  risk_aversion: number | null;
-  target_support_availability: number | null;
-  compliance_relevance: number | null;
+// User-provided form data (same structure as ExtractedData)
+export interface FormDataInput {
+  supplier_name: string;
+  supplier_contact: string | null;
+  product_description: string;
+  product_type: "software" | "hardware" | "service";
+  offer_price: string;
+  pricing_model: "yearly" | "monthly" | "one-time";
+  max_price: string;
+  target_price: string;
+  value_assessment: "urgent" | "high_impact" | "medium_impact" | "low_impact";
 }
 
 export interface UploadResponse {
@@ -29,7 +33,8 @@ export interface UploadResponse {
 
 export interface BriefingRequest {
   document_id: string;
-  additional_context?: Record<string, any>;
+  form_data: FormDataInput;
+  additional_context?: string;
 }
 
 export interface BriefingResponse {
@@ -43,10 +48,69 @@ export interface ProgressEvent {
   progress: number; // 0.0 to 1.0
 }
 
+// New 5-section briefing structure
+export interface CompanyOverview {
+  business_description: string;
+  size: string;
+  location: string;
+  industry: string;
+}
+
+export interface SupplierSummary {
+  company_overview: CompanyOverview;
+  key_facts: string[]; // max 5
+  recent_news: string[]; // max 3
+  contact_info: string | null;
+}
+
+export interface AlternativeSupplier {
+  supplier_name: string;
+  product_description: string;
+  offer_price: string;
+  pricing_model: string;
+}
+
+export interface MarketAnalysis {
+  alternatives_overview: string;
+  alternatives_list: AlternativeSupplier[];
+  price_positioning: string;
+  key_risks: string[]; // max 3
+}
+
+export interface OfferAnalysis {
+  completeness_score: number; // 1-10
+  completeness_notes: string;
+  price_assessment: string;
+  hidden_cost_warnings: string[];
+}
+
+export interface OutcomeAssessment {
+  target_achievable: boolean;
+  confidence: number; // 0.0-1.0
+  negotiation_leverage: string;
+  recommended_tactics: string[]; // 3-5 items
+  partnership_recommendation: string;
+}
+
+export interface ActionItem {
+  category: "price" | "terms" | "timeline" | "scope";
+  priority: "must_have" | "nice_to_have";
+  action: string;
+}
+
+export interface FinalBriefing {
+  supplier_summary: SupplierSummary;
+  market_analysis: MarketAnalysis;
+  offer_analysis: OfferAnalysis;
+  outcome_assessment: OutcomeAssessment;
+  action_items: ActionItem[];
+}
+
 export interface BriefingResult {
-  briefing: Record<string, any>;
+  briefing: FinalBriefing;
   status: string;
-  vector_db_id: string;
+  vector_db_id: string | null;
+  stored_to_pinecone: boolean;
 }
 
 export interface QueryBriefingRequest {

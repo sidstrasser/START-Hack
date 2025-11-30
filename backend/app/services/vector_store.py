@@ -170,83 +170,107 @@ def get_briefing_context(vector_db_id: str, action_type: str = None) -> str:
         action_type: Optional - "arguments", "outcome", or "metrics"
 
     Returns:
-        Formatted briefing context string optimized for the action
+        Vector DB ID (same as job_id)
     """
-    briefing = get_briefing_data(vector_db_id)
-    
-    if not briefing:
-        return "No briefing context available."
-    
-    # Return action-specific context
-    if action_type == "arguments":
-        return get_arguments_context(briefing)
-    elif action_type == "outcome":
-        return get_outcome_context(briefing)
-    elif action_type == "metrics":
-        return get_metrics_context(briefing)
-    else:
-        # Default: return full context (for RAG queries)
-        return get_full_context(briefing)
+    # Get namespace for this job (server-derived, not client-provided)
+    namespace = get_namespace_for_job(job_id)
 
+    # Create data records from NEW briefing sections (5 sections)
+    data_records = []
 
-def get_full_context(briefing: dict) -> str:
-    """Build full briefing context (used for general RAG queries)."""
-    if not briefing:
-        return "No briefing context available."
-    
-    context_parts = []
-    
-    if briefing.get("executive_summary"):
-        context_parts.append(f"## Executive Summary\n{briefing['executive_summary']}")
-    
-    if briefing.get("supplier_overview"):
-        supplier = briefing["supplier_overview"]
-        context_parts.append(f"## Supplier Overview\n- Name: {supplier.get('name', 'Unknown')}\n- Background: {supplier.get('background', '')}")
-        if supplier.get("strengths"):
-            context_parts.append(f"- Strengths: {', '.join(supplier['strengths'])}")
-        if supplier.get("weaknesses"):
-            context_parts.append(f"- Weaknesses: {', '.join(supplier['weaknesses'])}")
-    
-    if briefing.get("offer_analysis"):
-        offer = briefing["offer_analysis"]
-        context_parts.append(f"## Offer Analysis\n- Total Value: {offer.get('total_value', 'Unknown')}\n- Assessment: {offer.get('assessment', '')}")
-        if offer.get("key_items"):
-            context_parts.append(f"- Key Items: {', '.join(offer['key_items'])}")
-    
-    if briefing.get("negotiation_strategy"):
-        strategy = briefing["negotiation_strategy"]
-        context_parts.append(f"## Negotiation Strategy\n- Opening Position: {strategy.get('opening_position', '')}\n- Target Position: {strategy.get('target_position', '')}\n- Walkaway Point: {strategy.get('walkaway_point', '')}")
-    
-    if briefing.get("key_talking_points"):
-        points = briefing["key_talking_points"]
-        talking_points = "\n".join([f"- {tp.get('point', '')}: {tp.get('rationale', '')}" for tp in points])
-        context_parts.append(f"## Key Talking Points\n{talking_points}")
-    
-    if briefing.get("leverage_points"):
-        leverages = briefing["leverage_points"]
-        leverage_text = "\n".join([f"- {lp.get('lever', '')}: {lp.get('how_to_use', '')}" for lp in leverages])
-        context_parts.append(f"## Leverage Points\n{leverage_text}")
-    
-    if briefing.get("potential_objections"):
-        objections = briefing["potential_objections"]
-        objections_text = "\n".join([f"- Objection: {obj.get('objection', '')} → Counter: {obj.get('counter', '')}" for obj in objections])
-        context_parts.append(f"## Potential Objections & Counters\n{objections_text}")
-    
-    if briefing.get("risk_assessment"):
-        risks = briefing["risk_assessment"]
-        if risks.get("risks"):
-            context_parts.append(f"## Risks\n{', '.join(risks['risks'])}")
-        if risks.get("mitigation"):
-            context_parts.append(f"## Mitigation Strategies\n{', '.join(risks['mitigation'])}")
-    
-    return "\n\n".join(context_parts) if context_parts else "No briefing context available."
+    # Record 1: Supplier Summary
+    if "supplier_summary" in briefing:
+        text = f"Supplier Summary:\n{json.dumps(briefing['supplier_summary'], indent=2)}"
+        data_records.append({
+            "id": f"{job_id}_supplier_summary",
+            "text": text,
+            "section": "supplier_summary",
+            "job_id": job_id
+        })
 
+    # Record 2: Market Analysis
+    if "market_analysis" in briefing:
+        text = f"Market Analysis:\n{json.dumps(briefing['market_analysis'], indent=2)}"
+        data_records.append({
+            "id": f"{job_id}_market_analysis",
+            "text": text,
+            "section": "market_analysis",
+            "job_id": job_id
+        })
 
-async def store_briefing_in_vector_db(job_id: str, briefing: Dict[str, Any]) -> str:
-    """
-    Store briefing - now just returns job_id since we use in-memory storage.
-    """
-    logger.info(f"store_briefing_in_vector_db called for job_id={job_id}")
+    # Record 3: Offer Analysis
+    if "offer_analysis" in briefing:
+        text = f"Offer Analysis:\n{json.dumps(briefing['offer_analysis'], indent=2)}"
+        data_records.append({
+            "id": f"{job_id}_offer_analysis",
+            "text": text,
+            "section": "offer_analysis",
+            "job_id": job_id
+        })
+
+    # Record 4: Outcome Assessment
+    if "outcome_assessment" in briefing:
+        text = f"Outcome Assessment:\n{json.dumps(briefing['outcome_assessment'], indent=2)}"
+        data_records.append({
+            "id": f"{job_id}_outcome_assessment",
+            "text": text,
+            "section": "outcome_assessment",
+            "job_id": job_id
+        })
+
+    # Record 5: Action Items
+    if "action_items" in briefing:
+        text = f"Action Items:\n{json.dumps(briefing['action_items'], indent=2)}"
+        data_records.append({
+            "id": f"{job_id}_action_items",
+            "text": text,
+            "section": "action_items",
+            "job_id": job_id
+        })
+
+    if not data_records:
+        logger.warning(f"No briefing sections to store for job_id={job_id}")
+        return job_id
+
+    # Generate embeddings using Pinecone Inference API
+    # Uses multilingual-e5-large model (1024 dimensions)
+    try:
+        texts = [record["text"] for record in data_records]
+
+        # Generate embeddings using Pinecone's hosted model
+        embeddings_response = pc.inference.embed(
+            model="multilingual-e5-large",
+            inputs=texts,
+            parameters={
+                "input_type": "passage",
+                "truncate": "END"
+            }
+        )
+
+        # Prepare vectors for upsert
+        vectors = []
+        for i, record in enumerate(data_records):
+            vectors.append({
+                "id": record["id"],
+                "values": embeddings_response[i]["values"],
+                "metadata": {
+                    "text": record["text"],
+                    "section": record["section"],
+                    "job_id": record["job_id"]
+                }
+            })
+
+        # Upsert vectors to Pinecone
+        index.upsert(
+            vectors=vectors,
+            namespace=namespace
+        )
+
+        logger.info(f"Successfully stored {len(vectors)} vectors in Pinecone namespace={namespace}")
+    except Exception as e:
+        logger.error(f"Error upserting to Pinecone: {str(e)}", exc_info=True)
+        raise
+
     return job_id
 
 

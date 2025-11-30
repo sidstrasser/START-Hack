@@ -1,19 +1,35 @@
+"""
+MAS Pipeline - Orchestrates the negotiation briefing generation workflow.
+
+New flow: parse → research → analyze
+"""
+
 from app.agents.graph import negotiation_graph
 from app.agents.state import NegotiationState
 from app.api.routes import get_documents_store, get_briefings_store
 from app.services.progress_tracker import progress_tracker
 
 
-async def run_mas_pipeline(job_id: str, document_id: str, additional_context: dict):
+async def run_mas_pipeline(
+    job_id: str,
+    document_id: str,
+    supplier_offer_pdf: str,
+    alternatives_pdf: str | None,
+    additional_context_pdf: str | None,
+    form_data: dict
+):
     """
     Run the Multi-Agent System pipeline for negotiation briefing generation.
 
-    This is executed as a background task.
+    New flow: parse → research → analyze
 
     Args:
         job_id: Unique job ID for tracking
-        document_id: ID of the uploaded document
-        additional_context: Optional additional context from user
+        document_id: ID of the uploaded documents
+        supplier_offer_pdf: Raw text from supplier offer PDF
+        alternatives_pdf: Raw text from alternatives PDF (optional)
+        additional_context_pdf: Raw text from additional context PDF (optional)
+        form_data: User-provided structured form data
     """
     import logging
     logger = logging.getLogger(__name__)
@@ -21,35 +37,17 @@ async def run_mas_pipeline(job_id: str, document_id: str, additional_context: di
     logger.info(f"[PIPELINE] Starting MAS pipeline for job_id={job_id}, document_id={document_id}")
 
     try:
-        # Get document data
-        documents_store = get_documents_store()
         briefings_store = get_briefings_store()
 
-        if document_id not in documents_store:
-            logger.error(f"[PIPELINE] Document {document_id} not found in store")
-            await progress_tracker.publish(job_id, {
-                "agent": "system",
-                "status": "error",
-                "message": "Document not found",
-                "progress": 0.0
-            })
-            return
-
-        logger.info(f"[PIPELINE] Document {document_id} found in store")
-        doc_data = documents_store[document_id]
-        extracted_data = doc_data["extracted_data"]
-        logger.info(f"[PIPELINE] Extracted data loaded: {len(extracted_data.get('raw_text', ''))} chars")
-
-        # Initialize state
+        # Initialize new state structure
         initial_state: NegotiationState = {
             "document_id": document_id,
-            "raw_pdf_text": extracted_data["raw_text"],
-            "extracted_data": extracted_data,
-            "additional_context": additional_context,
-            "normalized_goals": None,
-            "deal_type": None,
-            "research_results": None,
-            "identified_potentials": None,
+            "supplier_offer_pdf": supplier_offer_pdf,
+            "alternatives_pdf": alternatives_pdf,
+            "additional_context_pdf": additional_context_pdf,
+            "form_data": form_data,
+            "parsed_input": None,
+            "research_output": None,
             "final_briefing": None,
             "current_agent": "",
             "errors": [],
@@ -57,12 +55,15 @@ async def run_mas_pipeline(job_id: str, document_id: str, additional_context: di
             "job_id": job_id
         }
 
+        logger.info(f"[PIPELINE] State initialized with new structure")
+        logger.info(f"[PIPELINE] Form data supplier: {form_data.get('supplier_name')}")
+
         # Publish start event
         logger.info(f"[PIPELINE] Publishing start event")
         await progress_tracker.publish(job_id, {
             "agent": "system",
             "status": "running",
-            "message": "Starting Multi-Agent System pipeline...",
+            "message": "Starting negotiation briefing generation...",
             "progress": 0.0
         })
 
@@ -73,11 +74,13 @@ async def run_mas_pipeline(job_id: str, document_id: str, additional_context: di
 
         # Check for errors
         if final_state.get("errors") and len(final_state["errors"]) > 0:
+            logger.error(f"[PIPELINE] Pipeline failed with errors: {final_state['errors']}")
             briefings_store[job_id] = {
                 "status": "error",
-                "briefing": {},
+                "briefing": None,
                 "errors": final_state["errors"],
-                "vector_db_id": None
+                "vector_db_id": None,
+                "stored_to_pinecone": False
             }
 
             await progress_tracker.publish(job_id, {
@@ -93,14 +96,13 @@ async def run_mas_pipeline(job_id: str, document_id: str, additional_context: di
         briefings_store[job_id] = {
             "status": "completed",
             "briefing": final_state["final_briefing"],
-            "vector_db_id": job_id,  # Use job_id as vector_db_id
-            "normalized_goals": final_state.get("normalized_goals"),
-            "deal_type": final_state.get("deal_type"),
-            "research_results": final_state.get("research_results"),
-            "identified_potentials": final_state.get("identified_potentials"),
+            "vector_db_id": None,  # Will be set when stored to Pinecone
+            "stored_to_pinecone": False,  # Track if already stored
+            "parsed_input": final_state.get("parsed_input"),
+            "research_output": final_state.get("research_output")
         }
 
-        logger.info(f"[PIPELINE] Briefing stored in briefings_store. Store now contains {len(briefings_store)} items")
+        logger.info(f"[PIPELINE] Briefing stored successfully. Store now contains {len(briefings_store)} items")
         logger.info(f"[PIPELINE] Verifying storage: job_id in store = {job_id in briefings_store}")
 
         # Publish completion
@@ -119,9 +121,10 @@ async def run_mas_pipeline(job_id: str, document_id: str, additional_context: di
         briefings_store = get_briefings_store()
         briefings_store[job_id] = {
             "status": "error",
-            "briefing": {},
+            "briefing": None,
             "error": str(e),
-            "vector_db_id": None
+            "vector_db_id": None,
+            "stored_to_pinecone": False
         }
 
         await progress_tracker.publish(job_id, {

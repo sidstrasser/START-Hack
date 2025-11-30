@@ -156,217 +156,200 @@ export default function Briefing() {
         {isComplete && briefing && (
           <div className="bg-white rounded-lg shadow-lg p-8">
             <div className="space-y-8">
-              {/* Executive Summary */}
-              {briefing.briefing.executive_summary && (
+              {/* 1. Supplier Summary */}
+              {briefing.briefing.supplier_summary && (
                 <section>
                   <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
-                    Executive Summary
-                  </h2>
-                  <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-                    {briefing.briefing.executive_summary}
-                  </p>
-                </section>
-              )}
-
-              {/* Supplier Overview */}
-              {briefing.briefing.supplier_overview && (
-                <section>
-                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
-                    Supplier Overview
+                    Supplier Summary
                   </h2>
                   <div className="space-y-4">
                     <div>
-                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Company</h3>
-                      <p className="text-gray-700">{briefing.briefing.supplier_overview.name}</p>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Company Overview</h3>
+                      <p className="text-gray-700">{briefing.briefing.supplier_summary.company_overview.business_description}</p>
+                      <div className="mt-2 grid md:grid-cols-3 gap-4 text-sm">
+                        <div><span className="font-medium">Size:</span> {briefing.briefing.supplier_summary.company_overview.size}</div>
+                        <div><span className="font-medium">Location:</span> {briefing.briefing.supplier_summary.company_overview.location}</div>
+                        <div><span className="font-medium">Industry:</span> {briefing.briefing.supplier_summary.company_overview.industry}</div>
+                      </div>
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Background</h3>
-                      <p className="text-gray-700">{briefing.briefing.supplier_overview.background}</p>
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Strengths</h3>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Key Facts</h3>
                       <ul className="list-disc pl-6 space-y-1">
-                        {briefing.briefing.supplier_overview.strengths.map((strength: string, idx: number) => (
-                          <li key={idx} className="text-gray-700">{strength}</li>
+                        {briefing.briefing.supplier_summary.key_facts.map((fact: string, idx: number) => (
+                          <li key={idx} className="text-gray-700">{fact}</li>
                         ))}
                       </ul>
                     </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Weaknesses & Risks</h3>
-                      <ul className="list-disc pl-6 space-y-1">
-                        {briefing.briefing.supplier_overview.weaknesses.map((weakness: string, idx: number) => (
-                          <li key={idx} className="text-gray-700">{weakness}</li>
-                        ))}
-                      </ul>
-                    </div>
+                    {briefing.briefing.supplier_summary.recent_news && briefing.briefing.supplier_summary.recent_news.length > 0 && (
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-800 mb-2">Recent News</h3>
+                        <ul className="list-disc pl-6 space-y-1">
+                          {briefing.briefing.supplier_summary.recent_news.map((news: string, idx: number) => (
+                            <li key={idx} className="text-gray-700">{news}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {briefing.briefing.supplier_summary.contact_info && (
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-800 mb-2">Contact</h3>
+                        <p className="text-gray-700">{briefing.briefing.supplier_summary.contact_info}</p>
+                      </div>
+                    )}
                   </div>
                 </section>
               )}
 
-              {/* Offer Analysis */}
+              {/* 2. Market Analysis */}
+              {briefing.briefing.market_analysis && (
+                <section>
+                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-green-600 pb-2">
+                    Market Analysis
+                  </h2>
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Market Overview</h3>
+                      <p className="text-gray-700">{briefing.briefing.market_analysis.alternatives_overview}</p>
+                    </div>
+                    {briefing.briefing.market_analysis.alternatives_list && briefing.briefing.market_analysis.alternatives_list.length > 0 && (
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-800 mb-2">Alternative Suppliers</h3>
+                        <div className="space-y-3">
+                          {briefing.briefing.market_analysis.alternatives_list.map((alt: any, idx: number) => (
+                            <div key={idx} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                              <div className="font-semibold text-gray-900">{alt.supplier_name}</div>
+                              <div className="text-sm text-gray-700 mt-1">{alt.product_description}</div>
+                              <div className="mt-2 flex gap-4 text-sm">
+                                <span><span className="font-medium">Price:</span> {alt.offer_price}</span>
+                                <span><span className="font-medium">Model:</span> {alt.pricing_model}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Price Positioning</h3>
+                      <p className="text-gray-700">{briefing.briefing.market_analysis.price_positioning}</p>
+                    </div>
+                    {briefing.briefing.market_analysis.key_risks && briefing.briefing.market_analysis.key_risks.length > 0 && (
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-800 mb-2">Key Risks</h3>
+                        <ul className="list-disc pl-6 space-y-1">
+                          {briefing.briefing.market_analysis.key_risks.map((risk: string, idx: number) => (
+                            <li key={idx} className="text-gray-700">{risk}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {/* 3. Offer Analysis */}
               {briefing.briefing.offer_analysis && (
                 <section>
-                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
+                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-purple-600 pb-2">
                     Offer Analysis
                   </h2>
                   <div className="space-y-4">
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Total Value</h3>
-                      <p className="text-gray-700 text-2xl font-bold text-blue-600">
-                        {briefing.briefing.offer_analysis.total_value}
-                      </p>
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <h3 className="text-xl font-semibold text-blue-900 mb-2">Completeness Score</h3>
+                      <div className="flex items-center gap-4">
+                        <span className="text-4xl font-bold text-blue-600">{briefing.briefing.offer_analysis.completeness_score}/10</span>
+                        <p className="text-blue-800 flex-1">{briefing.briefing.offer_analysis.completeness_notes}</p>
+                      </div>
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Key Items</h3>
-                      <ul className="list-disc pl-6 space-y-1">
-                        {briefing.briefing.offer_analysis.key_items.map((item: string, idx: number) => (
-                          <li key={idx} className="text-gray-700">{item}</li>
-                        ))}
-                      </ul>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Price Assessment</h3>
+                      <p className="text-gray-700">{briefing.briefing.offer_analysis.price_assessment}</p>
                     </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Assessment</h3>
-                      <p className="text-gray-700">{briefing.briefing.offer_analysis.assessment}</p>
-                    </div>
+                    {briefing.briefing.offer_analysis.hidden_cost_warnings && briefing.briefing.offer_analysis.hidden_cost_warnings.length > 0 && (
+                      <div className="bg-amber-50 p-4 rounded-lg border-l-4 border-amber-500">
+                        <h3 className="text-xl font-semibold text-amber-900 mb-2">Hidden Cost Warnings</h3>
+                        <ul className="list-disc pl-6 space-y-1">
+                          {briefing.briefing.offer_analysis.hidden_cost_warnings.map((warning: string, idx: number) => (
+                            <li key={idx} className="text-amber-800">{warning}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </section>
               )}
 
-              {/* Negotiation Strategy */}
-              {briefing.briefing.negotiation_strategy && (
+              {/* 4. Outcome Assessment */}
+              {briefing.briefing.outcome_assessment && (
                 <section>
-                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
-                    Negotiation Strategy
+                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-orange-600 pb-2">
+                    Outcome Assessment
                   </h2>
                   <div className="space-y-4">
-                    <div className="bg-green-50 p-4 rounded-lg border-l-4 border-green-500">
-                      <h3 className="text-xl font-semibold text-green-900 mb-2">Opening Position</h3>
-                      <p className="text-green-800">{briefing.briefing.negotiation_strategy.opening_position}</p>
-                    </div>
-                    <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
-                      <h3 className="text-xl font-semibold text-blue-900 mb-2">Target Position</h3>
-                      <p className="text-blue-800">{briefing.briefing.negotiation_strategy.target_position}</p>
-                    </div>
-                    <div className="bg-red-50 p-4 rounded-lg border-l-4 border-red-500">
-                      <h3 className="text-xl font-semibold text-red-900 mb-2">Walkaway Point</h3>
-                      <p className="text-red-800">{briefing.briefing.negotiation_strategy.walkaway_point}</p>
+                    <div className={`p-4 rounded-lg ${briefing.briefing.outcome_assessment.target_achievable ? 'bg-green-50 border-l-4 border-green-500' : 'bg-red-50 border-l-4 border-red-500'}`}>
+                      <div className="flex items-center gap-3">
+                        <span className="text-3xl">{briefing.briefing.outcome_assessment.target_achievable ? '✓' : '✗'}</span>
+                        <div>
+                          <h3 className={`text-xl font-semibold ${briefing.briefing.outcome_assessment.target_achievable ? 'text-green-900' : 'text-red-900'}`}>
+                            Target Price {briefing.briefing.outcome_assessment.target_achievable ? 'Achievable' : 'Not Achievable'}
+                          </h3>
+                          <p className={`text-sm ${briefing.briefing.outcome_assessment.target_achievable ? 'text-green-700' : 'text-red-700'}`}>
+                            Confidence: {(briefing.briefing.outcome_assessment.confidence * 100).toFixed(0)}%
+                          </p>
+                        </div>
+                      </div>
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Recommended Sequence</h3>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Negotiation Leverage</h3>
+                      <p className="text-gray-700">{briefing.briefing.outcome_assessment.negotiation_leverage}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Recommended Tactics</h3>
                       <ol className="list-decimal pl-6 space-y-2">
-                        {briefing.briefing.negotiation_strategy.recommended_sequence.map((step: string, idx: number) => (
-                          <li key={idx} className="text-gray-700">{step}</li>
+                        {briefing.briefing.outcome_assessment.recommended_tactics.map((tactic: string, idx: number) => (
+                          <li key={idx} className="text-gray-700">{tactic}</li>
                         ))}
                       </ol>
                     </div>
-                  </div>
-                </section>
-              )}
-
-              {/* Key Talking Points */}
-              {briefing.briefing.key_talking_points && briefing.briefing.key_talking_points.length > 0 && (
-                <section>
-                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
-                    Key Talking Points
-                  </h2>
-                  <div className="space-y-4">
-                    {briefing.briefing.key_talking_points.map((tp: any, idx: number) => (
-                      <div key={idx} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">{tp.point}</h3>
-                        <p className="text-gray-700 mb-2"><strong>Rationale:</strong> {tp.rationale}</p>
-                        <p className="text-gray-600 text-sm"><strong>Timing:</strong> {tp.timing}</p>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* Leverage Points */}
-              {briefing.briefing.leverage_points && briefing.briefing.leverage_points.length > 0 && (
-                <section>
-                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
-                    Leverage Points
-                  </h2>
-                  <div className="space-y-4">
-                    {briefing.briefing.leverage_points.map((lp: any, idx: number) => (
-                      <div key={idx} className="bg-amber-50 p-4 rounded-lg border-l-4 border-amber-500">
-                        <h3 className="text-lg font-semibold text-amber-900 mb-2">{lp.lever}</h3>
-                        <p className="text-amber-800"><strong>How to use:</strong> {lp.how_to_use}</p>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* Potential Objections */}
-              {briefing.briefing.potential_objections && briefing.briefing.potential_objections.length > 0 && (
-                <section>
-                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
-                    Potential Objections & Counters
-                  </h2>
-                  <div className="space-y-4">
-                    {briefing.briefing.potential_objections.map((obj: any, idx: number) => (
-                      <div key={idx} className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-                        <h3 className="text-lg font-semibold text-purple-900 mb-2">
-                          Objection: {obj.objection}
-                        </h3>
-                        <p className="text-purple-800"><strong>Counter:</strong> {obj.counter}</p>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* Risk Assessment */}
-              {briefing.briefing.risk_assessment && (
-                <section>
-                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
-                    Risk Assessment
-                  </h2>
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Potential Risks</h3>
-                      <ul className="list-disc pl-6 space-y-1">
-                        {briefing.briefing.risk_assessment.risks.map((risk: string, idx: number) => (
-                          <li key={idx} className="text-gray-700">{risk}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-800 mb-2">Mitigation Strategies</h3>
-                      <ul className="list-disc pl-6 space-y-1">
-                        {briefing.briefing.risk_assessment.mitigation.map((mit: string, idx: number) => (
-                          <li key={idx} className="text-gray-700">{mit}</li>
-                        ))}
-                      </ul>
+                    <div className="bg-indigo-50 p-4 rounded-lg border-l-4 border-indigo-500">
+                      <h3 className="text-xl font-semibold text-indigo-900 mb-2">Partnership Recommendation</h3>
+                      <p className="text-indigo-800">{briefing.briefing.outcome_assessment.partnership_recommendation}</p>
                     </div>
                   </div>
                 </section>
               )}
 
-              {/* Timeline Recommendations */}
-              {briefing.briefing.timeline_recommendations && (
+              {/* 5. Action Items */}
+              {briefing.briefing.action_items && briefing.briefing.action_items.length > 0 && (
                 <section>
-                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
-                    Timeline Recommendations
+                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-red-600 pb-2">
+                    Action Items
                   </h2>
-                  <p className="text-gray-700 whitespace-pre-wrap">
-                    {briefing.briefing.timeline_recommendations}
-                  </p>
-                </section>
-              )}
+                  <div className="space-y-4">
+                    {['must_have', 'nice_to_have'].map((priority) => {
+                      const items = briefing.briefing.action_items.filter((item: any) => item.priority === priority);
+                      if (items.length === 0) return null;
 
-              {/* Success Metrics */}
-              {briefing.briefing.success_metrics && briefing.briefing.success_metrics.length > 0 && (
-                <section>
-                  <h2 className="text-3xl font-bold mb-4 text-gray-900 border-b-2 border-blue-600 pb-2">
-                    Success Metrics
-                  </h2>
-                  <ul className="list-disc pl-6 space-y-2">
-                    {briefing.briefing.success_metrics.map((metric: string, idx: number) => (
-                      <li key={idx} className="text-gray-700">{metric}</li>
-                    ))}
-                  </ul>
+                      return (
+                        <div key={priority}>
+                          <h3 className="text-xl font-semibold text-gray-800 mb-3">
+                            {priority === 'must_have' ? 'Must Have' : 'Nice to Have'}
+                          </h3>
+                          <div className="space-y-2">
+                            {items.map((item: any, idx: number) => (
+                              <div key={idx} className={`p-3 rounded-lg border-l-4 ${priority === 'must_have' ? 'bg-red-50 border-red-500' : 'bg-blue-50 border-blue-500'}`}>
+                                <div className="flex items-start gap-3">
+                                  <span className={`px-2 py-1 text-xs font-semibold rounded ${priority === 'must_have' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
+                                    {item.category.toUpperCase()}
+                                  </span>
+                                  <p className={`flex-1 ${priority === 'must_have' ? 'text-red-900' : 'text-blue-900'}`}>{item.action}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </section>
               )}
             </div>
