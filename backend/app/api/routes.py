@@ -10,7 +10,6 @@ from app.api.models import (
     BriefingResult,
     QueryBriefingRequest,
     QueryBriefingResponse,
-    StoreToPineconeResponse,
 )
 from app.services.pdf_parser import extract_data_from_docs, generate_document_id
 from app.config import get_settings
@@ -242,18 +241,16 @@ async def get_briefing(job_id: str):
     return BriefingResult(
         briefing=briefing_data.get("briefing"),
         status=briefing_data.get("status", "pending"),
-        vector_db_id=briefing_data.get("vector_db_id"),
-        stored_to_pinecone=briefing_data.get("stored_to_pinecone", False)
+        vector_db_id=briefing_data.get("vector_db_id") or job_id
     )
 
 
 @router.post("/query-briefing", response_model=QueryBriefingResponse)
 async def query_briefing(request: QueryBriefingRequest):
     """
-    Query the briefing using RAG.
+    Query the briefing using RAG - PLACEHOLDER.
 
-    The namespace is derived server-side from vector_db_id to ensure
-    data isolation. The vector_db_id is validated against existing briefings.
+    Vector database functionality is currently disabled.
 
     Args:
         request: Vector DB ID and query
@@ -264,7 +261,6 @@ async def query_briefing(request: QueryBriefingRequest):
     from app.services.vector_store import query_briefing_rag
 
     # Validate that the vector_db_id corresponds to an existing briefing
-    # This ensures basic authorization (namespace is derived server-side)
     if request.vector_db_id not in briefings_store:
         raise HTTPException(
             status_code=404,
@@ -272,7 +268,6 @@ async def query_briefing(request: QueryBriefingRequest):
         )
 
     try:
-        # Namespace is derived server-side in query_briefing_rag from vector_db_id
         result = await query_briefing_rag(
             vector_db_id=request.vector_db_id,
             query=request.query
@@ -284,76 +279,6 @@ async def query_briefing(request: QueryBriefingRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error querying briefing: {str(e)}")
-
-
-@router.post("/store-briefing-to-pinecone/{job_id}", response_model=StoreToPineconeResponse)
-async def store_briefing_to_pinecone(job_id: str):
-    """
-    Store the briefing to Pinecone vector database.
-
-    This endpoint is called when the user clicks "Use in Live Call" to enable
-    RAG-based querying during the call.
-
-    Args:
-        job_id: Job ID of the briefing to store
-
-    Returns:
-        Success status and vector_db_id
-    """
-    import logging
-    from app.services.vector_store import store_briefing_in_vector_db
-
-    logger = logging.getLogger(__name__)
-
-    logger.info(f"[STORE TO PINECONE] Request received for job_id={job_id}")
-
-    # Check if briefing exists
-    if job_id not in briefings_store:
-        logger.error(f"[STORE TO PINECONE] Briefing not found for job_id={job_id}")
-        raise HTTPException(status_code=404, detail="Briefing not found")
-
-    briefing_data = briefings_store[job_id]
-
-    # Check if briefing is completed
-    if briefing_data.get("status") != "completed":
-        logger.error(f"[STORE TO PINECONE] Briefing not completed for job_id={job_id}")
-        raise HTTPException(status_code=400, detail="Briefing generation not completed")
-
-    # Check if already stored to Pinecone
-    if briefing_data.get("stored_to_pinecone", False):
-        logger.info(f"[STORE TO PINECONE] Briefing already stored for job_id={job_id}")
-        return StoreToPineconeResponse(
-            success=True,
-            vector_db_id=briefing_data.get("vector_db_id") or job_id,
-            message="Briefing already stored in Pinecone"
-        )
-
-    try:
-        # Store briefing to Pinecone
-        logger.info(f"[STORE TO PINECONE] Storing briefing to Pinecone for job_id={job_id}")
-        vector_db_id = await store_briefing_in_vector_db(
-            job_id=job_id,
-            briefing=briefing_data["briefing"]
-        )
-
-        # Update briefings_store with vector_db_id and stored flag
-        briefings_store[job_id]["vector_db_id"] = vector_db_id
-        briefings_store[job_id]["stored_to_pinecone"] = True
-
-        logger.info(f"[STORE TO PINECONE] Successfully stored briefing, vector_db_id={vector_db_id}")
-
-        return StoreToPineconeResponse(
-            success=True,
-            vector_db_id=vector_db_id,
-            message="Briefing successfully stored in Pinecone"
-        )
-
-    except Exception as e:
-        logger.error(f"[STORE TO PINECONE] Error: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error storing briefing to Pinecone: {str(e)}"
-        )
 
 
 # Export stores for access from other modules

@@ -91,8 +91,7 @@ async def run_mas_pipeline(
             })
             return
 
-        # Save final result (without storing to Pinecone yet)
-        # Pinecone storage will happen when user clicks "Use in Live Call"
+        # Save final result
         logger.info(f"[PIPELINE] Storing briefing in briefings_store for job_id={job_id}")
         briefings_store[job_id] = {
             "status": "completed",

@@ -46,7 +46,6 @@ class BriefingResult(BaseModel):
     briefing: Dict[str, Any] | None = None
     status: str
     vector_db_id: Optional[str] = None
-    stored_to_pinecone: bool = False
 
 
 class QueryBriefingRequest(BaseModel):
@@ -59,10 +58,3 @@ class QueryBriefingResponse(BaseModel):
     """Response from briefing query."""
     answer: str
     sources: List[str]
-
-
-class StoreToPineconeResponse(BaseModel):
-    """Response from store to Pinecone endpoint."""
-    success: bool
-    vector_db_id: str
-    message: str

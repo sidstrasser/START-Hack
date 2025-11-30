@@ -1,56 +1,59 @@
+import { ReactNode } from "react";
+
 interface MetricProps {
   label: string;
   value: string;
-  color: "blue" | "yellow" | "green" | "purple" | "red";
+  color: "blue" | "amber" | "purple";
   fillPercentage: number; // 0-100
+  icon?: ReactNode;
 }
 
 const colorClasses = {
   blue: {
-    bg: "bg-blue-50",
-    border: "border-blue-200",
-    text: "text-blue-700",
+    bg: "bg-blue-500/10",
+    text: "text-blue-600",
     fill: "bg-blue-500",
+    track: "bg-blue-200",
   },
-  yellow: {
-    bg: "bg-yellow-50",
-    border: "border-yellow-200",
-    text: "text-yellow-700",
-    fill: "bg-yellow-500",
-  },
-  green: {
-    bg: "bg-green-50",
-    border: "border-green-200",
-    text: "text-green-700",
-    fill: "bg-green-500",
+  amber: {
+    bg: "bg-amber-500/10",
+    text: "text-amber-600",
+    fill: "bg-amber-500",
+    track: "bg-amber-200",
   },
   purple: {
-    bg: "bg-purple-50",
-    border: "border-purple-200",
-    text: "text-purple-700",
+    bg: "bg-purple-500/10",
+    text: "text-purple-600",
     fill: "bg-purple-500",
-  },
-  red: {
-    bg: "bg-red-50",
-    border: "border-red-200",
-    text: "text-red-700",
-    fill: "bg-red-500",
+    track: "bg-purple-200",
   },
 };
 
-export default function Metric({ label, value, color, fillPercentage }: MetricProps) {
+export default function Metric({ label, value, color, fillPercentage, icon }: MetricProps) {
   const colors = colorClasses[color];
 
   return (
-    <div className={`${colors.bg} rounded-lg p-3 border ${colors.border}`}>
-      <div className="text-xs text-gray-600 mb-1.5">{label}</div>
-      <div className={`text-lg font-bold ${colors.text} mb-2`}>{value}</div>
-      {/* Progress line */}
-      <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
-        <div
-          className={`h-full ${colors.fill} transition-all duration-300`}
-          style={{ width: `${Math.min(100, Math.max(0, fillPercentage))}%` }}
-        />
+    <div className="flex items-center gap-2.5">
+      {/* Icon */}
+      <div className={`p-1.5 rounded-md ${colors.bg}`}>
+        <div className={`w-4 h-4 ${colors.text}`}>
+          {icon}
+        </div>
+      </div>
+      
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between mb-0.5">
+          <span className="text-xs text-gray-500 truncate">{label}</span>
+          <span className={`text-xs font-semibold ${colors.text}`}>{value}</span>
+        </div>
+        {/* Progress bar */}
+        <div className={`w-full h-1 ${colors.track} rounded-full overflow-hidden`}>
+          <div
+            className={`h-full ${colors.fill} transition-all duration-500 ease-out`}
+            style={{ width: `${Math.min(100, Math.max(0, fillPercentage))}%` }}
+          />
+        </div>
       </div>
     </div>
   );

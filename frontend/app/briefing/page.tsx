@@ -15,7 +15,6 @@ export default function Briefing() {
   const [briefing, setBriefing] = useState<BriefingResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progressHistory, setProgressHistory] = useState<ProgressEvent[]>([]);
-  const [isStoringToPinecone, setIsStoringToPinecone] = useState(false);
 
   // SSE connection for progress tracking
   const sseUrl = jobId ? `http://localhost:8000/api/progress/${jobId}` : null;
@@ -73,27 +72,9 @@ export default function Briefing() {
     }
   };
 
-  const handleUseInLiveCall = async () => {
-    if (!jobId) return;
-
-    setIsStoringToPinecone(true);
-    setError(null);
-
-    try {
-      console.log('[BRIEFING PAGE] Storing briefing to Pinecone...');
-      const result = await api.storeBriefingToPinecone(jobId);
-      console.log('[BRIEFING PAGE] Stored to Pinecone:', result);
-
-      // Update vector_db_id in session storage
-      sessionStorage.setItem('vectorDbId', result.vector_db_id);
-
-      // Navigate to live call page
-      router.push('/live-call');
-    } catch (err: any) {
-      console.error('[BRIEFING PAGE] Error storing to Pinecone:', err);
-      setError(err.message || 'Failed to store briefing to Pinecone');
-      setIsStoringToPinecone(false);
-    }
+  const handleUseInLiveCall = () => {
+    // Navigate directly to live call page
+    router.push('/live-call');
   };
 
   if (sseError) {
@@ -376,20 +357,9 @@ export default function Briefing() {
             <div className="mt-8 flex gap-4">
               <button
                 onClick={handleUseInLiveCall}
-                disabled={isStoringToPinecone}
-                className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700"
               >
-                {isStoringToPinecone ? (
-                  <>
-                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Preparing for Live Call...
-                  </>
-                ) : (
-                  'Use in Live Call'
-                )}
+                Use in Live Call
               </button>
               <button
                 onClick={() => window.print()}

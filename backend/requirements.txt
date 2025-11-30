@@ -13,7 +13,7 @@ langchain-community==0.3.13
 openai==1.58.1
 
 # Vector DB
-pinecone-client==5.0.1
+# (removed - awaiting new instructions)
 
 # PDF Processing
 pdfplumber==0.11.4
