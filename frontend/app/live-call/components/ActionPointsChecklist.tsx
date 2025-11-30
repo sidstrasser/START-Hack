@@ -6,6 +6,7 @@ interface ActionPoint {
   id: number;
   text: string;
   completed: boolean;
+  recommended?: boolean;
 }
 
 interface ActionPointsChecklistProps {
@@ -89,8 +90,8 @@ export default function ActionPointsChecklist({
       </button>
       
       {/* Items list */}
-      <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
-        showActionPoints ? 'max-h-[280px]' : 'max-h-0'
+      <div className={`transition-all duration-300 ease-in-out ${
+        showActionPoints ? 'max-h-[500px] overflow-y-auto' : 'max-h-0 overflow-hidden'
       }`}>
         <div className="px-3 pb-2 space-y-1.5">
           {actionPoints.map((point, index) => {

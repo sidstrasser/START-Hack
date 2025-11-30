@@ -110,11 +110,10 @@ Generate a complete negotiation briefing with these 4 sections, plus a separate 
    - Recommended Tactics: Provide 3-5 concrete tactical tips
    - Partnership Recommendation: "Strategic Partner" if urgent/high_impact, "Preferred Vendor" if medium_impact, "Transactional" if low_impact
 
-ACTION ITEMS (Separate from briefing):
-   - Generate EXACTLY 5 most important action items
-   - Each item must have: id (1-5) and description
-   - Focus on the highest priority actions the negotiator should take
-   - Be specific and actionable
+5. ACTION ITEMS
+   - Generate 5-10 action items
+   - Categories: price, terms, timeline, scope
+   - Mark exactly 2 items as recommended (recommended: true) - these should be the most critical/impactful items
 
 Be specific and actionable. Use the provided data to create a practical negotiation guide."""),
         ("user", """Create a negotiation briefing using this information:
